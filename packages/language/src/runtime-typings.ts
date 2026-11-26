@@ -22,6 +22,8 @@ import restGoTypings from './restgo-typings.generated.json';
 const WEB_BUTTON_ICON_TYPINGS = WEBRAD_ICON_NAMES.map((icon) => `    | '${icon}'`).join('\n');
 
 const RUNTIME_TYPINGS = `declare module '@webrad/runtime' {
+  export {};
+
   export type WebLineOrientation = 'horizontal' | 'vertical';
   export type WebLineIcon = WebButtonIcon | '';
   export class WebLine extends WebComponent<HTMLElement> {

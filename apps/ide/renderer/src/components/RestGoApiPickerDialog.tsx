@@ -70,10 +70,7 @@ export function RestGoApiPickerDialog({
   const needsConversion = custom && (!empty || customBaseUrl.trim().length > 0);
   const groups = useMemo(() => groupRestGoPublishedApis(apis), [apis]);
   const selectedApis = useMemo(
-    () =>
-      groups
-        .filter((group) => selectedIds.has(group.id))
-        .flatMap((group) => group.apis),
+    () => groups.filter((group) => selectedIds.has(group.id)).flatMap((group) => group.apis),
     [groups, selectedIds],
   );
   const selectedConnection =

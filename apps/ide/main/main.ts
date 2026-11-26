@@ -1341,6 +1341,12 @@ document.querySelector('.wr-ide-modal-host')?.inert === true && dialog.contains(
   ) {
     throw new Error('Examples & Tutorial did not materialize its editable HTML example.');
   }
+  const graphQLExample = tutorial.project.pages
+    .find((page) => page.name === 'RestGoSession')
+    ?.components.find((component) => component.name === 'DemoGraphQLClient');
+  if (graphQLExample?.type !== 'WebGraphQLClient') {
+    throw new Error('Examples & Tutorial did not include the RestGo GraphQL Client.');
+  }
   for (const themeId of ['prism', 'flat', 'webrad', 'aurora'] as const) {
     for (const templateId of ['blank', 'aurora-workspace'] as const) {
       const project = createProjectFromTemplate('AlignmentSmoke', templateId, themeId).project;

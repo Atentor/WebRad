@@ -220,11 +220,12 @@ it.runIf(browser !== undefined).each([false, true])(
       expect(compiled.files['assets/licenses/Shaka-Player-Apache-2.0.txt']).toContain('Apache');
       preview = compiled.previewHtml!;
       await withChromium(browser!, `http://127.0.0.1:${appAddress.port}/`, async (send) => {
-        const evaluate = async (expression: string): Promise<unknown> => {
+        const evaluate = async (expression: string, userGesture = false): Promise<unknown> => {
           const result = await send('Runtime.evaluate', {
             expression,
             awaitPromise: true,
             returnByValue: true,
+            userGesture,
           });
           if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
           return (
@@ -262,7 +263,20 @@ it.runIf(browser !== undefined).each([false, true])(
           url: baseUrl,
         });
         const click = (action: string) =>
-          evaluate(`${root}.querySelector('[data-webrad-name="Button${action}"]').click()`);
+          evaluate(`${root}.querySelector('[data-webrad-name="Button${action}"]').click()`, true);
+        const playbackTime = async (): Promise<number> => {
+          const state = (await evaluate(`(() => {
+            const media = ${media};
+            return {
+              currentTime: media.currentTime,
+              readyState: media.readyState,
+              paused: media.paused,
+              error: ${root}.dataset.playFailure ?? ${root}.dataset.playerError ?? media.error?.message,
+            };
+          })()`)) as { currentTime: number; error?: string };
+          if (state.error) throw new Error(`Video playback failed: ${JSON.stringify(state)}`);
+          return state.currentTime;
+        };
         await click('Public');
         await expect
           .poll(() => evaluate(`${root}.dataset.loadDone ?? ${root}.dataset.loadFailure`), {
@@ -275,9 +289,7 @@ it.runIf(browser !== undefined).each([false, true])(
             .every((call) => !call.authorization && !call.cookie),
         ).toBe(true);
         await click('Play');
-        await expect
-          .poll(() => evaluate(`${media}.currentTime`), { timeout: 10000 })
-          .toBeGreaterThan(0.15);
+        await expect.poll(playbackTime, { timeout: 10000 }).toBeGreaterThan(0.15);
         await click('Pause');
         expect(
           Number(await evaluate(`${media}.getVideoPlaybackQuality().totalVideoFrames`)),
@@ -338,9 +350,7 @@ it.runIf(browser !== undefined).each([false, true])(
           .poll(() => evaluate(`${root}.dataset.loadDone`), { timeout: 15000 })
           .toBe('dash');
         await click('Play');
-        await expect
-          .poll(() => evaluate(`${media}.currentTime`), { timeout: 10000 })
-          .toBeGreaterThan(0.15);
+        await expect.poll(playbackTime, { timeout: 10000 }).toBeGreaterThan(0.15);
         await expect
           .poll(() => evaluate(`${media}.getVideoPlaybackQuality().totalVideoFrames`), {
             timeout: 10000,

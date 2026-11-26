@@ -789,7 +789,9 @@ export const ComponentNodeSchema: z.ZodType<ComponentNode> = z.preprocess(
           }
       }
       if (component.type === 'WebGraphQLClient') {
-        const result = GraphQLClientOperationIdsSchema.safeParse(component.props.graphQLOperationIds);
+        const result = GraphQLClientOperationIdsSchema.safeParse(
+          component.props.graphQLOperationIds,
+        );
         if (!result.success) {
           for (const issue of result.error.issues) {
             context.addIssue({

@@ -561,7 +561,9 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceSessionProps): ReactElemen
   const requiresConnection = !status?.connected;
   const visibleNotice = settingsApplied
     ? 'Configuration applied to the project. Save the project to keep these changes.'
-    : showAdminNotice ? null : notice;
+    : showAdminNotice
+      ? null
+      : notice;
   const visibleError = error ?? (section === 'connection' ? null : adminStartupError);
   return (
     <section className="wr-restgo-workspace" aria-label="RestGO integration" aria-busy={busy}>

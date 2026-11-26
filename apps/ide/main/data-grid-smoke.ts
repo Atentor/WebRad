@@ -124,8 +124,13 @@ async function assertSavedEditor(window: BrowserWindow): Promise<void> {
   await ready(
     window,
     `${labelValues
-      .map(([key, value]) => `document.querySelector(${JSON.stringify(labelledControl(key))})?.value === ${JSON.stringify(value)}`)
-      .join(' && ')} && document.querySelector(${JSON.stringify(labelledControl('showSaveButton'))})?.checked === true`,
+      .map(
+        ([key, value]) =>
+          `document.querySelector(${JSON.stringify(labelledControl(key))})?.value === ${JSON.stringify(value)}`,
+      )
+      .join(
+        ' && ',
+      )} && document.querySelector(${JSON.stringify(labelledControl('showSaveButton'))})?.checked === true`,
   );
   const appearance = [
     ['Data Grid row height mode', 'dynamic'],
@@ -435,11 +440,13 @@ export async function runDataGridConfigurationSmoke(
     await click(window, '.wr-icon-picker-dialog [data-icon-picker-option="check"]');
     await ready(window, `document.querySelector('.wr-icon-picker-dialog') === null`);
     const columnList = `${dialogSelector} [role="listbox"]`;
-    await click(window, `${columnList} li:nth-child(2) [role="option"]`);
+    const secondColumn = `${columnList} li:nth-child(2) [role="option"]`;
+    await click(window, secondColumn);
     await ready(
       window,
       `document.querySelector(${JSON.stringify(labelledControl('Header for Data Grid column 1'))}) === null &&
-        document.querySelector(${JSON.stringify(labelledControl('Header for Data Grid column 2'))})?.value === 'Column 2'`,
+        document.querySelector(${JSON.stringify(labelledControl('Header for Data Grid column 2'))})?.value === 'Column 2' &&
+        document.querySelector(${JSON.stringify(secondColumn)})?.textContent.trim() === 'Column 2 Text'`,
     );
     await click(window, `${columnList} li:first-child [role="option"]`);
     await openConfigurationTab(window, 'labels');

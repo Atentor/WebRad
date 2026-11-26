@@ -75,13 +75,22 @@ export function isDataGridGraphQLMutation(
     mutation.database !== query.database ||
     mutation.runtime.table !== query.runtime.table ||
     mutation.runtime.kind !== kind
-  ) return false;
-  if (kind !== 'delete' && !mutation.runtime.parameters.some(({ source }) => source.role === 'input'))
+  )
+    return false;
+  if (
+    kind !== 'delete' &&
+    !mutation.runtime.parameters.some(({ source }) => source.role === 'input')
+  )
     return false;
   if (kind === 'insert') return true;
-  const rowFields = new Set(comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path));
-  return mutation.runtime.parameters.some(({ source }) =>
-    source.role === 'filter' && source.identityEligible === true && rowFields.has(source.fieldPath),
+  const rowFields = new Set(
+    comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path),
+  );
+  return mutation.runtime.parameters.some(
+    ({ source }) =>
+      source.role === 'filter' &&
+      source.identityEligible === true &&
+      rowFields.has(source.fieldPath),
   );
 }
 
@@ -178,9 +187,7 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
       .strict()
       .optional(),
     labels: z.partialRecord(z.enum(WEB_DATA_GRID_LABEL_KEYS), labelSchema).optional(),
-    editorFieldLabels: z
-      .record(z.string().startsWith('/').max(4_096), labelSchema)
-      .optional(),
+    editorFieldLabels: z.record(z.string().startsWith('/').max(4_096), labelSchema).optional(),
     showSaveButton: z.boolean().optional(),
     columnCount: z.number().int().min(1).max(50),
     showHeader: z.boolean(),

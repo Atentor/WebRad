@@ -32,10 +32,31 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
   const responseSchema: ApiClientResponseSchema = {
     version: 1,
     root: {
-      id: 'rows', name: 'Response', path: '', kind: 'list', fieldType: 'list', nullable: false,
+      id: 'rows',
+      name: 'Response',
+      path: '',
+      kind: 'list',
+      fieldType: 'list',
+      nullable: false,
       children: [
-        { id: 'row-id', name: 'id', path: '/*/id', kind: 'field', fieldType: 'integer', nullable: false, children: [] },
-        { id: 'row-name', name: 'name', path: '/*/name', kind: 'field', fieldType: 'string', nullable: false, children: [] },
+        {
+          id: 'row-id',
+          name: 'id',
+          path: '/*/id',
+          kind: 'field',
+          fieldType: 'integer',
+          nullable: false,
+          children: [],
+        },
+        {
+          id: 'row-name',
+          name: 'name',
+          path: '/*/name',
+          kind: 'field',
+          fieldType: 'string',
+          nullable: false,
+          children: [],
+        },
       ],
     },
   };
@@ -50,33 +71,79 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
     {
       ...query,
       spec: {
-        kind: 'query', rootField: queryRoot, selectionPaths, orderBy: [], inputs: [], pageSize: 1,
-        conditions: { logic: 'and', items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: false }] },
+        kind: 'query',
+        rootField: queryRoot,
+        selectionPaths,
+        orderBy: [],
+        inputs: [],
+        pageSize: 1,
+        conditions: {
+          logic: 'and',
+          items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: false }],
+        },
       },
       runtime: {
-        ...query, kind: 'query', table, rootField: queryRoot, selections: [],
+        ...query,
+        kind: 'query',
+        table,
+        rootField: queryRoot,
+        selections: [],
         parameters: [
-          { name: 'customerId', type: 'Int', kind: 'integer', required: false, enumValues: [], source: { role: 'filter', fieldPath: '/id', operator: 'eq' } },
+          {
+            name: 'customerId',
+            type: 'Int',
+            kind: 'integer',
+            required: false,
+            enumValues: [],
+            source: { role: 'filter', fieldPath: '/id', operator: 'eq' },
+          },
         ],
         pagination: { defaultSize: 1, maxSize: 20 },
-        document: 'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor, $customerId: Int) { customersCollection(first: $_wrFirst, after: $_wrAfter, filter: { id: { eq: $customerId } }) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
+        document:
+          'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor, $customerId: Int) { customersCollection(first: $_wrFirst, after: $_wrAfter, filter: { id: { eq: $customerId } }) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
       },
       responseSchema,
     },
     {
       ...mutation,
       spec: {
-        kind: 'update', rootField: mutationRoot, selectionPaths, orderBy: [], pageSize: 1,
-        conditions: { logic: 'and', items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: true }] },
+        kind: 'update',
+        rootField: mutationRoot,
+        selectionPaths,
+        orderBy: [],
+        pageSize: 1,
+        conditions: {
+          logic: 'and',
+          items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: true }],
+        },
         inputs: [{ field: 'name', parameter: 'customerName', required: true }],
       },
       runtime: {
-        ...mutation, kind: 'update', table, rootField: mutationRoot, selections: [],
+        ...mutation,
+        kind: 'update',
+        table,
+        rootField: mutationRoot,
+        selections: [],
         parameters: [
-          { name: 'customerId', type: 'Int!', kind: 'integer', required: true, enumValues: [], source: { role: 'filter', fieldPath: '/id', operator: 'eq', identityEligible: true } },
-          { name: 'customerName', type: 'String!', kind: 'string', required: true, enumValues: [], source: { role: 'input', fieldPath: '/name' } },
+          {
+            name: 'customerId',
+            type: 'Int!',
+            kind: 'integer',
+            required: true,
+            enumValues: [],
+            source: { role: 'filter', fieldPath: '/id', operator: 'eq', identityEligible: true },
+          },
+          {
+            name: 'customerName',
+            type: 'String!',
+            kind: 'string',
+            required: true,
+            enumValues: [],
+            source: { role: 'input', fieldPath: '/name' },
+          },
         ],
-        document: 'mutation UpdateGridCustomer($customerId: Int!, $customerName: String!) { updatecustomersCollection(filter: { id: { eq: $customerId } }, set: { name: $customerName }, atMost: 1) { affectedCount records { id name } } }',
+        document:
+          'mutation UpdateGridCustomer($customerId: Int!, $customerName: String!) { updatecustomersCollection(filter: { id: { eq: $customerId } }, set: { name: $customerName }, atMost: 1) { affectedCount records { id name } } }',
       },
       responseSchema,
     },
@@ -626,7 +693,10 @@ export async function runRestGoBrowserSmoke(
   >();
   const paymentNavigations: string[] = [];
   const paymentHistoryCursors: string[] = [];
-  const graphQLRows = [{ id: 1, name: 'Grid Alpha' }, { id: 2, name: 'Grid Beta' }];
+  const graphQLRows = [
+    { id: 1, name: 'Grid Alpha' },
+    { id: 2, name: 'Grid Beta' },
+  ];
   const graphQLMutations: { readonly rowId: unknown; readonly name: unknown }[] = [];
   const historicalPaymentId = '00000000-0000-4000-8000-000000000009';
   const paymentResponse = (slug: string) => {
@@ -864,16 +934,26 @@ export async function runRestGoBrowserSmoke(
       capturedRequest.body = body;
       const variables = body.variables ?? {};
       if (body.operationName === 'GridCustomers') {
-        const rows = variables.customerId === undefined
-          ? graphQLRows
-          : graphQLRows.filter(({ id }) => id === variables.customerId);
+        const rows =
+          variables.customerId === undefined
+            ? graphQLRows
+            : graphQLRows.filter(({ id }) => id === variables.customerId);
         const start = variables._wrAfter === 'grid-cursor-1' ? 1 : 0;
         const end = Math.min(rows.length, start + Number(variables._wrFirst));
-        response.end(JSON.stringify({ data: { customersCollection: {
-          edges: rows.slice(start, end).map((node) => ({ node })),
-          pageInfo: { endCursor: end === 1 ? 'grid-cursor-1' : null, hasNextPage: end < rows.length },
-          totalCount: rows.length,
-        } } }));
+        response.end(
+          JSON.stringify({
+            data: {
+              customersCollection: {
+                edges: rows.slice(start, end).map((node) => ({ node })),
+                pageInfo: {
+                  endCursor: end === 1 ? 'grid-cursor-1' : null,
+                  hasNextPage: end < rows.length,
+                },
+                totalCount: rows.length,
+              },
+            },
+          }),
+        );
         return;
       }
       if (body.operationName === 'UpdateGridCustomer') {
@@ -882,11 +962,17 @@ export async function runRestGoBrowserSmoke(
         graphQLMutations.push({ rowId: variables.customerId, name });
         if (row !== undefined && typeof name === 'string') {
           row.name = name;
-          response.end(JSON.stringify({ data: { updatecustomersCollection: { affectedCount: 1, records: [row] } } }));
+          response.end(
+            JSON.stringify({
+              data: { updatecustomersCollection: { affectedCount: 1, records: [row] } },
+            }),
+          );
           return;
         }
       }
-      response.writeHead(400).end(JSON.stringify({ errors: [{ message: 'Unknown GraphQL fixture operation' }] }));
+      response
+        .writeHead(400)
+        .end(JSON.stringify({ errors: [{ message: 'Unknown GraphQL fixture operation' }] }));
       return;
     }
     if (route.startsWith('/payment/')) {
@@ -1178,11 +1264,16 @@ export async function runRestGoBrowserSmoke(
           editorFieldLabels: { '/name': 'Customer name' },
           graphql: {
             clientId: graphQLClient.id,
-            pageSize: 1, showPager: true,
-            crudEnabled: true, insertOperationId: null, updateOperationId: gridUpdateId, deleteOperationId: null,
+            pageSize: 1,
+            showPager: true,
+            crudEnabled: true,
+            insertOperationId: null,
+            updateOperationId: gridUpdateId,
+            deleteOperationId: null,
           },
           columns: gridConfiguration.columns.map((column, index) => ({
-            ...column, fieldPath: index === 0 ? '/name' : '',
+            ...column,
+            fieldPath: index === 0 ? '/name' : '',
           })),
         },
       },
@@ -1191,15 +1282,32 @@ export async function runRestGoBrowserSmoke(
     const graphQLCombo = defaultComponentRegistry.createComponent('WebComboBox', {
       name: 'CustomerChoices',
       parentId: boundPage.rootComponentId,
-      existingNames: [...boundPage.components, login, ...paymentComponents, graphQLClient, graphQLGrid],
+      existingNames: [
+        ...boundPage.components,
+        login,
+        ...paymentComponents,
+        graphQLClient,
+        graphQLGrid,
+      ],
       props: {
         comboBoxConfig: {
-          schemaVersion: 1, apiClientId: null, graphqlClientId: graphQLClient.id,
-          operationId: gridQueryId, listPath: '', displayField: '/name', keyField: '/id',
+          schemaVersion: 1,
+          apiClientId: null,
+          graphqlClientId: graphQLClient.id,
+          operationId: gridQueryId,
+          listPath: '',
+          displayField: '/name',
+          keyField: '/id',
         },
       },
     });
-    const fixtureComponents = [login, ...paymentComponents, graphQLClient, graphQLGrid, graphQLCombo];
+    const fixtureComponents = [
+      login,
+      ...paymentComponents,
+      graphQLClient,
+      graphQLGrid,
+      graphQLCombo,
+    ];
     const loginPage = {
       ...boundPage,
       components: [
@@ -1576,17 +1684,28 @@ export class index extends indexGenerated {
       throw new Error(`RestGO browser smoke failed: ${JSON.stringify(evidence)}`);
     }
     if (
-      requests.filter((request) => request.route === '/gql/demo' &&
-        (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?.customerId === 2).length !== 1 ||
+      requests.filter(
+        (request) =>
+          request.route === '/gql/demo' &&
+          (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?.customerId ===
+            2,
+      ).length !== 1 ||
       graphQLMutations.length !== 2 ||
       graphQLMutations[0]?.rowId !== 1 ||
       graphQLMutations[0]?.name !== 'Grid Alpha Saved' ||
       graphQLMutations[1]?.rowId !== 1 ||
       graphQLMutations[1]?.name !== 'Grid Alpha Saved Again' ||
-      !requests.some((request) => request.route === '/gql/demo' &&
-        (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?._wrAfter === 'grid-cursor-1')
-    ) throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
-    log('renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, configured captions, and explicit saves from page code and the grid button; HTTP fixture');
+      !requests.some(
+        (request) =>
+          request.route === '/gql/demo' &&
+          (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?._wrAfter ===
+            'grid-cursor-1',
+      )
+    )
+      throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
+    log(
+      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, configured captions, and explicit saves from page code and the grid button; HTTP fixture',
+    );
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
       paymentRequests.length === 0 ||

@@ -32,11 +32,13 @@ export function GraphQLClientConfigurationDialog({
       name,
       detail: `${runtime.kind} · ${runtime.database}/${runtime.table}`,
     })),
-    ...[...selected].filter((id) => !availableIds.has(id)).map((id) => ({
-      id,
-      name: id,
-      detail: 'Unavailable',
-    })),
+    ...[...selected]
+      .filter((id) => !availableIds.has(id))
+      .map((id) => ({
+        id,
+        name: id,
+        detail: 'Unavailable',
+      })),
   ];
 
   useEffect(() => {
@@ -61,7 +63,12 @@ export function GraphQLClientConfigurationDialog({
           <span className="wr-modal-eyebrow">{component.name}</span>
           <h2 id={titleId}>Configure GraphQL Client</h2>
         </div>
-        <button type="button" className="wr-modal-close" aria-label="Close GraphQL Client" onClick={onClose}>
+        <button
+          type="button"
+          className="wr-modal-close"
+          aria-label="Close GraphQL Client"
+          onClick={onClose}
+        >
           <Icon name="close" />
         </button>
       </header>
@@ -84,7 +91,7 @@ export function GraphQLClientConfigurationDialog({
                   type="checkbox"
                   value={id}
                   checked={selected.has(id)}
-                disabled={selected.has(id) && operationUsers.has(id)}
+                  disabled={selected.has(id) && operationUsers.has(id)}
                   onChange={(event) => {
                     const checked = event.currentTarget.checked;
                     setSelected((current) => {
@@ -105,8 +112,12 @@ export function GraphQLClientConfigurationDialog({
           </div>
         )}
         <footer className="wr-modal-actions">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button className="primary" type="submit">Save GraphQL Client</button>
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary" type="submit">
+            Save GraphQL Client
+          </button>
         </footer>
       </form>
     </dialog>,

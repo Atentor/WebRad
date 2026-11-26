@@ -194,12 +194,19 @@ function connectionRows(
   selections: readonly WebGraphQLSelection[],
 ): WebGraphQLRow[] {
   return Array.isArray(value?.edges)
-    ? projectRows(value.edges.map((edge: unknown) => record(edge)?.node), selections)
+    ? projectRows(
+        value.edges.map((edge: unknown) => record(edge)?.node),
+        selections,
+      )
     : [];
 }
 
 /** Check an input as JSON and enforce the scalar/list shape visible to the project. */
-function isParameterValue(value: WebGraphQLValue, parameter: WebGraphQLParameter, type: string): boolean {
+function isParameterValue(
+  value: WebGraphQLValue,
+  parameter: WebGraphQLParameter,
+  type: string,
+): boolean {
   if (value === null) return !type.endsWith('!');
   const nullableType = type.replace(/!$/, '');
   if (nullableType.startsWith('[')) {
@@ -237,7 +244,7 @@ export interface WebGraphQLOperationReference<
   readonly [graphQLOperationReference]: true;
   readonly name: TName;
   readonly id: string;
-  readonly parameter: { -readonly [TKey in keyof TParameters]-?: TParameters[TKey] | undefined };
+  readonly parameter: { [TKey in keyof TParameters & string]: TParameters[TKey] | undefined };
   execute(
     parameters?: TParameters,
     options?: WebGraphQLExecutionOptions<TResult>,
@@ -251,9 +258,9 @@ export type WebGraphQLExecutionOptions<TResult> =
 
 /** Runs project-authored GraphQL operations through the signed-in RestGo user. */
 export class WebGraphQLClient<
-    TParameters extends object = Record<string, WebGraphQLParameters>,
-    TResults extends object = Record<string, WebGraphQLResult>,
-  >
+  TParameters extends object = Record<string, WebGraphQLParameters>,
+  TResults extends object = Record<string, WebGraphQLResult>,
+>
   extends WebNonvisualComponent
   implements WebGraphQLSource
 {
@@ -330,7 +337,7 @@ export class WebGraphQLClient<
   }
 
   public setVariables<TName extends OperationName<TParameters, TResults>>(
-    reference: WebGraphQLOperationReference<TName>,
+    reference: WebGraphQLOperationReference<TName, TParameters[TName], TResults[TName]>,
     variables: TParameters[NoInfer<TName>],
   ): void {
     const operation = this.#resolveReference(reference);
@@ -374,7 +381,7 @@ export class WebGraphQLClient<
   }
 
   public async execute<TName extends OperationName<TParameters, TResults>>(
-    operation: WebGraphQLOperationReference<TName>,
+    operation: WebGraphQLOperationReference<TName, TParameters[TName], TResults[TName]>,
     parameters?: TParameters[NoInfer<TName>],
     options?: WebGraphQLExecutionOptions<TResults[NoInfer<TName>]>,
   ): Promise<TResults[TName]> {
@@ -415,7 +422,11 @@ export class WebGraphQLClient<
         true,
       );
       const pagination = this.#pageVariables(operation, options);
-      const response = await this.#request(operation, { ...variables, ...pagination }, options.signal);
+      const response = await this.#request(
+        operation,
+        { ...variables, ...pagination },
+        options.signal,
+      );
       const rawPage = record(response.pageInfo);
       const result: WebGraphQLPage = {
         rows: connectionRows(response, operation.selections),
@@ -504,7 +515,9 @@ export class WebGraphQLClient<
   #bindGraphQLEvent(eventName: string, handler: WebGraphQLEventHandler<this> | null): void {
     this.bindEvent(
       eventName,
-      handler ? (sender, event) => handler(sender, event as CustomEvent<WebGraphQLEventDetail>) : null,
+      handler
+        ? (sender, event) => handler(sender, event as CustomEvent<WebGraphQLEventDetail>)
+        : null,
     );
   }
 
@@ -553,8 +566,8 @@ export class WebGraphQLClient<
     return operation;
   }
 
-  #resolveReference(
-    reference: WebGraphQLOperationReference<OperationName<TParameters, TResults>>,
+  #resolveReference<TName extends OperationName<TParameters, TResults>>(
+    reference: WebGraphQLOperationReference<TName, TParameters[TName], TResults[TName]>,
   ): WebGraphQLRuntimeOperation {
     if (this.operation[reference.name] !== reference) {
       throw new TypeError('Select an operation from this GraphQL Client.');
@@ -573,7 +586,9 @@ export class WebGraphQLClient<
     }
     const values: [string, WebGraphQLValue][] = [];
     for (const parameter of operation.parameters) {
-      const value = Object.hasOwn(variables, parameter.name) ? variables[parameter.name] : undefined;
+      const value = Object.hasOwn(variables, parameter.name)
+        ? variables[parameter.name]
+        : undefined;
       if (value === undefined) {
         if (requireAll && parameter.required)
           throw new TypeError(`GraphQL parameter "${parameter.name}" is required.`);
@@ -614,7 +629,10 @@ export class WebGraphQLClient<
     let completed: WebGraphQLEventDetail = detail;
     try {
       if (this.#disposed || client !== this.#client || revision !== this.#sessionRevision) {
-        throw new WebGraphQLRequestError('The RestGo session changed before GraphQL ran.', 'SESSION_CHANGED');
+        throw new WebGraphQLRequestError(
+          'The RestGo session changed before GraphQL ran.',
+          'SESSION_CHANGED',
+        );
       }
       const result = await execute();
       completed = { ...detail, result };
@@ -646,7 +664,8 @@ export class WebGraphQLClient<
     if (result.error) {
       const { status, code, message, details } = result.error;
       const failure = readFailure(details);
-      const uncertain = mutation && (code === 'NETWORK_ERROR' || code === 'INVALID_RESPONSE' || status >= 500);
+      const uncertain =
+        mutation && (code === 'NETWORK_ERROR' || code === 'INVALID_RESPONSE' || status >= 500);
       throw new WebGraphQLRequestError(
         failure.message ?? message,
         failure.code ?? code,

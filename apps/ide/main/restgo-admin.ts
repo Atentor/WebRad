@@ -359,7 +359,8 @@ export class RestGoAdminService {
     const { baseUrl } = targetSchema.parse(input);
     const token = await this.token(ownerId, baseUrl);
     const result = await this.request(baseUrl, token, 'graphql-admin/databases', 'GET');
-    return z.array(graphQLDatabaseSchema)
+    return z
+      .array(graphQLDatabaseSchema)
       .parse(result)
       .filter(
         (database) =>
@@ -372,14 +373,19 @@ export class RestGoAdminService {
       .map(({ id, name, slug, endpoint, settings }) => ({ id, name, slug, endpoint, ...settings }));
   }
 
-  public async graphqlSchema(ownerId: number, input: RestGoAdminRecordRequest): Promise<GraphQLSchema> {
+  public async graphqlSchema(
+    ownerId: number,
+    input: RestGoAdminRecordRequest,
+  ): Promise<GraphQLSchema> {
     const { baseUrl, id } = recordSchema.parse(input);
     const token = await this.token(ownerId, baseUrl);
     const result = await this.request(baseUrl, token, 'graphql-admin/databases', 'GET', {
       id,
       detail: 'schema',
     });
-    const failure = z.object({ errors: z.array(z.object({ message: z.string() })) }).safeParse(result);
+    const failure = z
+      .object({ errors: z.array(z.object({ message: z.string() })) })
+      .safeParse(result);
     const message = failure.success ? failure.data.errors[0]?.message : undefined;
     if (message) throw new Error(message.split(token).join('[credential]').slice(0, 1_000));
     return readGraphQLSchema(result);

@@ -2045,7 +2045,8 @@ const webComboBox: ComponentDefinition = {
       category: 'Data',
       source: 'props',
       defaultValue: null,
-      description: 'Select an API Client or GraphQL Client, then choose the display and key fields.',
+      description:
+        'Select an API Client or GraphQL Client, then choose the display and key fields.',
       designerAction: 'combo-box-configurator',
     },
     {
@@ -2514,7 +2515,8 @@ const webDataGrid: ComponentDefinition = {
       eventDetailProperties: ['column', 'rowIndex', 'columnIndex', 'value', 'getValue'],
     }),
     event('OnChangesChanged', 'GraphQL', {
-      description: 'A local edit is ready. Call SaveChanges here to save automatically, or from a separate action.',
+      description:
+        'A local edit is ready. Call SaveChanges here to save automatically, or from a separate action.',
       eventDetailType: 'WebDataGridChangesEventDetail',
     }),
     event('OnSaveChanges', 'GraphQL', {

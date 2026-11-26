@@ -9,14 +9,18 @@ import { z } from 'zod';
 import { ApiClientResponseSchemaSchema, type ApiClientResponseSchema } from './api-client.js';
 import type { ComponentNode } from './types.js';
 
-export const GraphQLClientOperationIdsSchema = z.array(z.string().trim().min(1).max(200)).refine(
-  (ids) => new Set(ids).size === ids.length,
-  'GraphQL operation IDs must be unique within a client.',
-);
+export const GraphQLClientOperationIdsSchema = z
+  .array(z.string().trim().min(1).max(200))
+  .refine(
+    (ids) => new Set(ids).size === ids.length,
+    'GraphQL operation IDs must be unique within a client.',
+  );
 
 export function graphQLClientOperationIds(component: ComponentNode): readonly string[] {
   if (component.type === 'WebGraphQLClient') {
-    return GraphQLClientOperationIdsSchema.safeParse(component.props.graphQLOperationIds).data ?? [];
+    return (
+      GraphQLClientOperationIdsSchema.safeParse(component.props.graphQLOperationIds).data ?? []
+    );
   }
   return [];
 }
@@ -80,7 +84,10 @@ export interface ProjectGraphQLOperation extends ProjectGraphQLOperationDraft {
   readonly responseSchema: ApiClientResponseSchema;
 }
 
-export const GraphQLNameSchema = z.string().max(256).regex(/^[_A-Za-z][_0-9A-Za-z]*$/);
+export const GraphQLNameSchema = z
+  .string()
+  .max(256)
+  .regex(/^[_A-Za-z][_0-9A-Za-z]*$/);
 const databaseSlug = z.string().regex(/^[a-z][a-z0-9_]{0,29}$/);
 const operationKind = z.enum(['query', 'insert', 'update', 'delete']);
 const scalarKind = z.enum(['string', 'number', 'integer', 'boolean', 'json']);
@@ -144,7 +151,10 @@ const parameterSchema: z.ZodType<WebGraphQLParameter> = z
     source: z
       .object({
         role: z.enum(['filter', 'input']),
-        fieldPath: z.string().regex(/^\/[_A-Za-z][_0-9A-Za-z]*$/).max(257),
+        fieldPath: z
+          .string()
+          .regex(/^\/[_A-Za-z][_0-9A-Za-z]*$/)
+          .max(257),
         operator: GraphQLNameSchema.optional(),
         identityEligible: z.boolean().optional(),
       })
@@ -171,7 +181,10 @@ const runtimeSchema: z.ZodType<WebGraphQLRuntimeOperation> = z
     kind: operationKind,
     rootField: GraphQLNameSchema,
     table: GraphQLNameSchema,
-    document: z.string().min(1).max(32 * 1024),
+    document: z
+      .string()
+      .min(1)
+      .max(32 * 1024),
     parameters: z.array(parameterSchema).max(200),
     selections: z.array(selectionSchema).max(1000),
     pagination: z

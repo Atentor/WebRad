@@ -272,6 +272,7 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
       'WebPopup',
       'WebApiClient',
+      'WebGraphQLClient',
       'WebTimer',
       'WebPayments',
       'WebFileUpload',

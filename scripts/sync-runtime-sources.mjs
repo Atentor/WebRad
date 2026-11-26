@@ -159,8 +159,16 @@ const graphqlTypingsPath = path.join(
 );
 const graphqlTypings =
   JSON.stringify(
-    createApiClientDeclarations(repositoryRoot, ['graphql.ts', 'data-grid-graphql.ts'], (name) =>
-      name !== 'DataGridGraphQL' && name !== 'DataGridGraphQLRow' && name !== 'GridGraphQLEvents',
+    createApiClientDeclarations(
+      repositoryRoot,
+      ['graphql.ts', 'data-grid-graphql.ts'],
+      (name) =>
+        ![
+          'DataGridGraphQL',
+          'DataGridGraphQLRow',
+          'DataGridGraphQLSourceConfiguration',
+          'GridGraphQLEvents',
+        ].includes(name),
     ),
     null,
     2,

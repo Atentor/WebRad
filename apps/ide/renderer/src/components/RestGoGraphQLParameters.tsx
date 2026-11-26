@@ -1,7 +1,12 @@
 import type { GraphQLOperationChoice, GraphQLValueChoice } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 import { Icon } from './Icon';
-import { newGraphQLParameter, type ConditionDraft, type ConditionGroupDraft, type ParameterDraft } from './restgo-graphql-draft';
+import {
+  newGraphQLParameter,
+  type ConditionDraft,
+  type ConditionGroupDraft,
+  type ParameterDraft,
+} from './restgo-graphql-draft';
 
 const operatorLabels = new Map([
   ['eq', '='],
@@ -31,27 +36,41 @@ function defaultValueFor(choice: GraphQLValueChoice | undefined): string {
   return '';
 }
 
-function ParameterFields({ draft, choice, required = false, onChange }: ParameterFieldsProps): ReactElement {
+function ParameterFields({
+  draft,
+  choice,
+  required = false,
+  onChange,
+}: ParameterFieldsProps): ReactElement {
   const setValue = (value: string) => onChange({ ...draft, value });
   const mustSupply = required || choice?.nullable === false;
   return (
     <div className="wr-restgo-graphql-parameters">
       <label>
         Parameter name
-        <input required value={draft.parameter} onChange={(event) => onChange({ ...draft, parameter: event.currentTarget.value })} />
+        <input
+          required
+          value={draft.parameter}
+          onChange={(event) => onChange({ ...draft, parameter: event.currentTarget.value })}
+        />
         {choice && <small>{choice.type}</small>}
       </label>
       <label>
         Value source
-        <select value={draft.source} onChange={(event) => {
-          const source = event.currentTarget.value;
-          if (source === 'application' || source === 'default' || source === 'null') {
-            onChange({ ...draft, source, value: draft.value || defaultValueFor(choice) });
-          }
-        }}>
+        <select
+          value={draft.source}
+          onChange={(event) => {
+            const source = event.currentTarget.value;
+            if (source === 'application' || source === 'default' || source === 'null') {
+              onChange({ ...draft, source, value: draft.value || defaultValueFor(choice) });
+            }
+          }}
+        >
           <option value="application">Application parameter</option>
           <option value="default">Parameter with default value</option>
-          {choice?.nullable && !mustSupply && !draft.required && <option value="null">Parameter with null default</option>}
+          {choice?.nullable && !mustSupply && !draft.required && (
+            <option value="null">Parameter with null default</option>
+          )}
         </select>
       </label>
       <label className="wr-restgo-graphql-check">
@@ -61,7 +80,11 @@ function ParameterFields({ draft, choice, required = false, onChange }: Paramete
           disabled={mustSupply}
           onChange={(event) => {
             const checked = event.currentTarget.checked;
-            onChange({ ...draft, required: checked, source: checked && draft.source === 'null' ? 'application' : draft.source });
+            onChange({
+              ...draft,
+              required: checked,
+              source: checked && draft.source === 'null' ? 'application' : draft.source,
+            });
           }}
         />
         Required
@@ -70,11 +93,17 @@ function ParameterFields({ draft, choice, required = false, onChange }: Paramete
         <label className="wr-restgo-graphql-default">
           Default value
           {choice.list || choice.kind === 'json' ? (
-            <textarea rows={2} value={draft.value} onChange={(event) => setValue(event.currentTarget.value)} />
+            <textarea
+              rows={2}
+              value={draft.value}
+              onChange={(event) => setValue(event.currentTarget.value)}
+            />
           ) : choice.enumValues.length > 0 || choice.kind === 'boolean' ? (
             <select value={draft.value} onChange={(event) => setValue(event.currentTarget.value)}>
               {(choice.kind === 'boolean' ? ['false', 'true'] : choice.enumValues).map((value) => (
-                <option key={value} value={value}>{value}</option>
+                <option key={value} value={value}>
+                  {value}
+                </option>
               ))}
             </select>
           ) : (
@@ -102,30 +131,48 @@ interface ConditionGroupProps {
 
 function makeCondition(operation: GraphQLOperationChoice, field: string): ConditionDraft | null {
   const filter = operation.filters.find((item) => item.field === field);
-  const operator = filter?.operators.find((option) => option.operator === 'eq') ?? filter?.operators[0];
+  const operator =
+    filter?.operators.find((option) => option.operator === 'eq') ?? filter?.operators[0];
   return operator ? { ...newGraphQLParameter(field), operator: operator.operator } : null;
 }
 
 export function RestGoGraphQLConditionGroup({
-  group, operation, onChange, onRemove, depth = 0, requireValues,
+  group,
+  operation,
+  onChange,
+  onRemove,
+  depth = 0,
+  requireValues,
 }: ConditionGroupProps): ReactElement {
-  const firstField = operation.filters.find((filter) =>
-    !group.items.some((item) => 'field' in item && item.field === filter.field),
-  ) ?? operation.filters[0];
+  const firstField =
+    operation.filters.find(
+      (filter) => !group.items.some((item) => 'field' in item && item.field === filter.field),
+    ) ?? operation.filters[0];
   const firstCondition = makeCondition(operation, firstField?.field ?? '');
   const replaceItem = (index: number, next: ConditionDraft | ConditionGroupDraft) =>
-    onChange({ ...group, items: group.items.map((item, itemIndex) => itemIndex === index ? next : item) });
+    onChange({
+      ...group,
+      items: group.items.map((item, itemIndex) => (itemIndex === index ? next : item)),
+    });
   const removeItem = (index: number) =>
     onChange({ ...group, items: group.items.filter((_, itemIndex) => itemIndex !== index) });
   return (
-    <div className={depth === 0 ? 'wr-restgo-graphql-condition-group' : 'wr-restgo-graphql-condition-group is-nested'}>
+    <div
+      className={
+        depth === 0
+          ? 'wr-restgo-graphql-condition-group'
+          : 'wr-restgo-graphql-condition-group is-nested'
+      }
+    >
       <div className="wr-restgo-graphql-group-actions">
         {(operation.supportsOr || group.logic === 'or') && (
           <label className="wr-restgo-graphql-match">
             Match
             <select
               value={group.logic}
-              onChange={(event) => onChange({ ...group, logic: event.currentTarget.value === 'or' ? 'or' : 'and' })}
+              onChange={(event) =>
+                onChange({ ...group, logic: event.currentTarget.value === 'or' ? 'or' : 'and' })
+              }
             >
               <option value="and">All conditions (AND)</option>
               <option value="or" disabled={!operation.supportsOr}>
@@ -138,7 +185,9 @@ export function RestGoGraphQLConditionGroup({
           type="button"
           className="wr-restgo-button"
           disabled={!firstCondition}
-          onClick={() => firstCondition && onChange({ ...group, items: [...group.items, firstCondition] })}
+          onClick={() =>
+            firstCondition && onChange({ ...group, items: [...group.items, firstCondition] })
+          }
         >
           <Icon name="add" />
           Add condition
@@ -147,7 +196,12 @@ export function RestGoGraphQLConditionGroup({
           <button
             type="button"
             className="wr-restgo-button is-quiet"
-            onClick={() => onChange({ ...group, items: [...group.items, { logic: group.logic === 'and' ? 'or' : 'and', items: [] }] })}
+            onClick={() =>
+              onChange({
+                ...group,
+                items: [...group.items, { logic: group.logic === 'and' ? 'or' : 'and', items: [] }],
+              })
+            }
           >
             <Icon name="add" />
             Add condition group
@@ -170,7 +224,9 @@ export function RestGoGraphQLConditionGroup({
           );
         }
         const filter = operation.filters.find((candidate) => candidate.field === item.field);
-        const operator = filter?.operators.find((candidate) => candidate.operator === item.operator);
+        const operator = filter?.operators.find(
+          (candidate) => candidate.operator === item.operator,
+        );
         return (
           <div className="wr-restgo-graphql-row wr-restgo-graphql-filter-row" key={index}>
             <div className="wr-restgo-graphql-row-fields">
@@ -184,20 +240,33 @@ export function RestGoGraphQLConditionGroup({
                   }}
                 >
                   {!filter && <option value={item.field}>{item.field} (unavailable)</option>}
-                  {operation.filters.map((choice) => <option key={choice.field}>{choice.field}</option>)}
+                  {operation.filters.map((choice) => (
+                    <option key={choice.field}>{choice.field}</option>
+                  ))}
                 </select>
               </label>
               <label>
                 Operator
                 <select
                   value={item.operator}
-                  onChange={(event) => replaceItem(index, { ...item, operator: event.currentTarget.value, source: 'application', value: '' })}
+                  onChange={(event) =>
+                    replaceItem(index, {
+                      ...item,
+                      operator: event.currentTarget.value,
+                      source: 'application',
+                      value: '',
+                    })
+                  }
                 >
                   {!operator && (
-                    <option value={item.operator}>{operatorLabels.get(item.operator) ?? item.operator} (unavailable)</option>
+                    <option value={item.operator}>
+                      {operatorLabels.get(item.operator) ?? item.operator} (unavailable)
+                    </option>
                   )}
                   {filter?.operators.map(({ operator: value }) => (
-                    <option key={value} value={value}>{operatorLabels.get(value) ?? value}</option>
+                    <option key={value} value={value}>
+                      {operatorLabels.get(value) ?? value}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -222,8 +291,14 @@ interface MutationInputsProps {
   readonly onChange: (inputs: readonly ParameterDraft[]) => void;
 }
 
-export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: MutationInputsProps): ReactElement {
-  const available = operation.inputs.filter((choice) => !inputs.some((input) => input.field === choice.field));
+export function RestGoGraphQLMutationInputs({
+  inputs,
+  operation,
+  onChange,
+}: MutationInputsProps): ReactElement {
+  const available = operation.inputs.filter(
+    (choice) => !inputs.some((input) => input.field === choice.field),
+  );
   const first = available[0];
   return (
     <div className="wr-restgo-graphql-condition-group">
@@ -238,12 +313,24 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
                   value={input.field}
                   disabled={choice?.required}
                   onChange={(event) => {
-                    const next = available.find((candidate) => candidate.field === event.currentTarget.value);
-                    if (next) onChange(inputs.map((entry, at) => at === index ? newGraphQLParameter(next.field) : entry));
+                    const next = available.find(
+                      (candidate) => candidate.field === event.currentTarget.value,
+                    );
+                    if (next)
+                      onChange(
+                        inputs.map((entry, at) =>
+                          at === index ? newGraphQLParameter(next.field) : entry,
+                        ),
+                      );
                   }}
                 >
-                  <option value={input.field}>{input.field}{choice ? '' : ' (unavailable)'}</option>
-                  {available.map((item) => <option key={item.field}>{item.field}</option>)}
+                  <option value={input.field}>
+                    {input.field}
+                    {choice ? '' : ' (unavailable)'}
+                  </option>
+                  {available.map((item) => (
+                    <option key={item.field}>{item.field}</option>
+                  ))}
                 </select>
               </label>
             </div>
@@ -251,9 +338,16 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
               draft={input}
               choice={choice}
               required={choice?.required ?? false}
-              onChange={(next) => onChange(inputs.map((entry, at) => at === index ? next : entry))}
+              onChange={(next) =>
+                onChange(inputs.map((entry, at) => (at === index ? next : entry)))
+              }
             />
-            {!choice?.required && <RemoveField label="Remove input field" onClick={() => onChange(inputs.filter((_, at) => at !== index))} />}
+            {!choice?.required && (
+              <RemoveField
+                label="Remove input field"
+                onClick={() => onChange(inputs.filter((_, at) => at !== index))}
+              />
+            )}
           </div>
         );
       })}
@@ -272,9 +366,21 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
   );
 }
 
-export function RemoveField({ label, onClick }: { readonly label: string; readonly onClick: () => void }): ReactElement {
+export function RemoveField({
+  label,
+  onClick,
+}: {
+  readonly label: string;
+  readonly onClick: () => void;
+}): ReactElement {
   return (
-    <button type="button" className="wr-restgo-button is-quiet is-danger" aria-label={label} title={label} onClick={onClick}>
+    <button
+      type="button"
+      className="wr-restgo-button is-quiet is-danger"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
       <Icon name="delete" />
     </button>
   );

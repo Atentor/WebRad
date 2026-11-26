@@ -104,8 +104,8 @@ export function DataGridLabelsSettings({
   return (
     <>
       <p>
-        These labels apply to the GraphQL Client’s pagination and record editing controls.
-        Leave a label empty to use the text shown in its placeholder.
+        These labels apply to the GraphQL Client’s pagination and record editing controls. Leave a
+        label empty to use the text shown in its placeholder.
       </p>
       {labelGroups.map((group) => (
         <fieldset className="wr-data-grid-label-group" key={group.title}>

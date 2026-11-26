@@ -162,7 +162,9 @@
   font-size: 12px;
 }
 
-.wr-restgo-graphql-editor :is(.wr-restgo-graphql-action-picker, .wr-restgo-graphql-selection) .wr-restgo-graphql-check {
+.wr-restgo-graphql-editor
+  :is(.wr-restgo-graphql-action-picker, .wr-restgo-graphql-selection)
+  .wr-restgo-graphql-check {
   padding: 2px 4px;
   border-radius: 3px;
 }
@@ -327,7 +329,9 @@
   }
 
   .wr-restgo-graphql-filter-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.4fr) auto auto;
+    grid-template-columns:
+      minmax(0, 1fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.4fr)
+      auto auto;
   }
 
   .wr-restgo-graphql-row > :is(.wr-restgo-graphql-row-fields, .wr-restgo-graphql-parameters) {

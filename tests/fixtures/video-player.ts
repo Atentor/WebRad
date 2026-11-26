@@ -97,9 +97,22 @@ export function videoPlayerMethods(baseUrl: string): string {
   public async doPrivate(): Promise<void> { await this.signIn(); await this.load('private-video'); }
   public async doBad(): Promise<void> { await this.signIn(); await this.load('bad-video'); }
   public async doRedirect(): Promise<void> { await this.signIn(); await this.load('redirect-video'); }
-  public async doDash(): Promise<void> { await this.VideoPlayer1.LoadUrl(${JSON.stringify(`${baseUrl}/direct/manifest.mpd`)},{format:'dash'}); this.element.dataset.loadDone='dash'; }
-  public async doExternal(): Promise<void> { await this.VideoPlayer1.LoadUrl(${JSON.stringify(`${baseUrl}/direct/master.m3u8`)}); this.element.dataset.loadDone='external'; }
-  public async doPlay(): Promise<void> { await VideoPlayer1.Play(); }
+  private async loadUrl(url: string, source: 'dash' | 'external'): Promise<void> {
+    delete this.element.dataset.playerError;
+    delete this.element.dataset.loadDone;
+    await this.VideoPlayer1.LoadUrl(url, source === 'dash' ? { format: 'dash' } : undefined);
+    this.element.dataset.loadDone = source;
+  }
+  public async doDash(): Promise<void> { await this.loadUrl(${JSON.stringify(`${baseUrl}/direct/manifest.mpd`)}, 'dash'); }
+  public async doExternal(): Promise<void> { await this.loadUrl(${JSON.stringify(`${baseUrl}/direct/master.m3u8`)}, 'external'); }
+  public async doPlay(): Promise<void> {
+    delete this.element.dataset.playFailure;
+    try { await VideoPlayer1.Play(); }
+    catch (error) {
+      this.element.dataset.playFailure = error instanceof Error ? error.message : String(error);
+      throw error;
+    }
+  }
   public doPause(): void { this.VideoPlayer1.Pause(); }
   public doSeek(): void { this.VideoPlayer1.Seek(Math.min(0.5,this.VideoPlayer1.duration / 2)); this.element.dataset.seeked=String(this.VideoPlayer1.currentTime); }
   public doStop(): void { VideoPlayer1.Stop(); this.element.dataset.stopped=String(VideoPlayer1.currentTime); }

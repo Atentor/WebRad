@@ -50,7 +50,9 @@ export class RestGoClient {
     signal?: AbortSignal,
   ): Promise<RestGoResult<unknown>> {
     if (!/^[a-z][a-z0-9_]{0,29}$/.test(database)) {
-      return Promise.resolve(failure('Choose a valid RestGo GraphQL database.', 'INVALID_ARGUMENT'));
+      return Promise.resolve(
+        failure('Choose a valid RestGo GraphQL database.', 'INVALID_ARGUMENT'),
+      );
     }
     return this.#transport.request(`/gql/${encodeURIComponent(database)}`, {
       method: 'POST',

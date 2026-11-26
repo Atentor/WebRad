@@ -89,7 +89,10 @@ export interface DataGridGraphQLRow {
 
 function tokens(path: string): readonly string[] {
   return path.startsWith('/')
-    ? path.slice(1).split('/').map((token) => token.replaceAll('~1', '/').replaceAll('~0', '~'))
+    ? path
+        .slice(1)
+        .split('/')
+        .map((token) => token.replaceAll('~1', '/').replaceAll('~0', '~'))
     : [];
 }
 
@@ -106,7 +109,11 @@ function fieldValue(row: WebGraphQLRow | null, path: string): WebGraphQLValue | 
   return current;
 }
 
-function withField(row: WebGraphQLRow, path: readonly string[], value: WebGraphQLValue): WebGraphQLRow {
+function withField(
+  row: WebGraphQLRow,
+  path: readonly string[],
+  value: WebGraphQLValue,
+): WebGraphQLRow {
   const [field, ...rest] = path;
   if (field === undefined) return row;
   if (rest.length === 0) return { ...row, [field]: value };
@@ -153,10 +160,12 @@ function publicChange(change: PendingChange): WebDataGridPendingChange {
 }
 
 function rowKeys(paths: readonly string[], row: WebGraphQLRow): WebDataGridMutationValues {
-  return Object.fromEntries(paths.flatMap((path) => {
-    const value = fieldValue(row, path);
-    return isRowKey(value) ? [[path, value]] : [];
-  }));
+  return Object.fromEntries(
+    paths.flatMap((path) => {
+      const value = fieldValue(row, path);
+      return isRowKey(value) ? [[path, value]] : [];
+    }),
+  );
 }
 
 export class DataGridGraphQL {
@@ -182,7 +191,10 @@ export class DataGridGraphQL {
 
   public constructor(
     private readonly render: () => void,
-    private readonly emit: <T extends keyof GridGraphQLEvents>(name: T, detail: GridGraphQLEvents[T]) => void,
+    private readonly emit: <T extends keyof GridGraphQLEvents>(
+      name: T,
+      detail: GridGraphQLEvents[T],
+    ) => void,
   ) {}
 
   public get enabled(): boolean {
@@ -190,27 +202,51 @@ export class DataGridGraphQL {
   }
 
   public get showPager(): boolean {
-    return this.#configuration?.showPager === true && this.#queryOperation()?.pagination !== undefined;
+    return (
+      this.#configuration?.showPager === true && this.#queryOperation()?.pagination !== undefined
+    );
   }
 
-  public get generation(): number { return this.#generation; }
-  public get authenticated(): boolean { return this.#source?.authenticated === true; }
+  public get generation(): number {
+    return this.#generation;
+  }
+  public get authenticated(): boolean {
+    return this.#source?.authenticated === true;
+  }
   public get pageNumber(): number | null {
     const index = this.#page?.index ?? 0;
     return index === 0 || this.#hasPageNumbers ? index + 1 : null;
   }
-  public get pageSize(): number { return this.#pageSize; }
-  public get defaultPageSize(): number { return this.#initialPageSize(); }
-  public get totalCount(): number | null { return this.#page?.result.totalCount ?? null; }
-  public get maxPageSize(): number { return this.#queryOperation()?.pagination?.maxSize ?? this.#pageSize; }
-  public get loading(): boolean { return this.#status === 'loading'; }
-  public get saving(): boolean { return this.#save !== null; }
-  public get hasChanges(): boolean { return this.#changes.length > 0; }
+  public get pageSize(): number {
+    return this.#pageSize;
+  }
+  public get defaultPageSize(): number {
+    return this.#initialPageSize();
+  }
+  public get totalCount(): number | null {
+    return this.#page?.result.totalCount ?? null;
+  }
+  public get maxPageSize(): number {
+    return this.#queryOperation()?.pagination?.maxSize ?? this.#pageSize;
+  }
+  public get loading(): boolean {
+    return this.#status === 'loading';
+  }
+  public get saving(): boolean {
+    return this.#save !== null;
+  }
+  public get hasChanges(): boolean {
+    return this.#changes.length > 0;
+  }
   public get hasUncertainChanges(): boolean {
     return this.#changes.some((change) => change.outcome === 'uncertain');
   }
-  public get queryError(): Error | undefined { return this.#queryError; }
-  public get saveError(): Error | undefined { return this.#saveError; }
+  public get queryError(): Error | undefined {
+    return this.#queryError;
+  }
+  public get saveError(): Error | undefined {
+    return this.#saveError;
+  }
 
   public get canGoBack(): boolean {
     return !this.loading && this.#page !== undefined && this.#page.index > 0;
@@ -246,7 +282,8 @@ export class DataGridGraphQL {
         const signature = keySignature(group.paths, read);
         const candidate = signature === undefined ? undefined : group.changes.get(signature);
         // Draft IDs retain insertion order when a staged change is edited.
-        if (candidate !== undefined && (draft === null || candidate.id < draft.id)) draft = candidate;
+        if (candidate !== undefined && (draft === null || candidate.id < draft.id))
+          draft = candidate;
       }
       rows.push({ value: draft?.overlay ?? original, original, draft });
     }
@@ -257,12 +294,14 @@ export class DataGridGraphQL {
     if (JSON.stringify(configuration) === JSON.stringify(this.#configuration)) return;
     const previous = this.#configuration;
     this.#configuration = configuration;
-    if (previous?.sourceId !== configuration?.sourceId ||
-        previous?.operationId !== configuration?.operationId ||
-        previous?.insertOperationId !== configuration?.insertOperationId ||
-        previous?.updateOperationId !== configuration?.updateOperationId ||
-        previous?.deleteOperationId !== configuration?.deleteOperationId ||
-        previous?.crudEnabled !== configuration?.crudEnabled) {
+    if (
+      previous?.sourceId !== configuration?.sourceId ||
+      previous?.operationId !== configuration?.operationId ||
+      previous?.insertOperationId !== configuration?.insertOperationId ||
+      previous?.updateOperationId !== configuration?.updateOperationId ||
+      previous?.deleteOperationId !== configuration?.deleteOperationId ||
+      previous?.crudEnabled !== configuration?.crudEnabled
+    ) {
       this.#resetChanges();
       this.#attach();
       return;
@@ -292,47 +331,55 @@ export class DataGridGraphQL {
     const source = this.#source;
     const operation = this.#queryOperation();
     this.#resolveMutations(operation);
-    this.#unsubscribe = operation === undefined ? undefined : source?.subscribe((change) => {
-      if (change.operationId !== operation.id) return;
-      if (change.kind === 'page') {
-        const { result, variables, first, after } = change;
-        const normalized = (values: WebGraphQLParameters): WebGraphQLParameters =>
-          Object.fromEntries(operation.parameters.map(({ name }) => [
-            name,
-            Object.hasOwn(values, name) ? values[name] : undefined,
-          ]));
-        const published = normalized(variables);
-        const knownIndex = after === null ? -1 : this.#after.indexOf(after);
-        const reuseHistory =
-          knownIndex > 0 &&
-          first === this.#pageSize &&
-          JSON.stringify(published) === JSON.stringify(normalized({
-            ...source?.getVariables(operation.id),
-            ...this.#variables,
-          }));
-        const history = reuseHistory ? this.#after.slice(0, knownIndex + 1) : [null];
-        const hasPageNumbers = after === null || (reuseHistory && this.#hasPageNumbers);
-        // Cursor values do not encode a page number. The first page is the fallback
-        // predecessor of an external cursor when no matching history exists.
-        if (after !== null && !reuseHistory) history.push(after);
-        this.#resetPage();
-        this.#variables = structuredClone(published);
-        if (first !== undefined) this.#pageSize = first;
-        const index = history.length - 1;
-        this.#after = history;
-        this.#hasPageNumbers = hasPageNumbers;
-        this.#page = { index, result };
-        this.#requestedPage = index;
-        this.#status = 'ready';
-        this.render();
-        return;
-      }
-      if (change.kind === 'session') this.#resetChanges();
-      if (change.kind === 'parameters' || change.kind === 'session') {
-        this.#variables = undefined;
-        void this.refresh();
-      }
-    });
+    this.#unsubscribe =
+      operation === undefined
+        ? undefined
+        : source?.subscribe((change) => {
+            if (change.operationId !== operation.id) return;
+            if (change.kind === 'page') {
+              const { result, variables, first, after } = change;
+              const normalized = (values: WebGraphQLParameters): WebGraphQLParameters =>
+                Object.fromEntries(
+                  operation.parameters.map(({ name }) => [
+                    name,
+                    Object.hasOwn(values, name) ? values[name] : undefined,
+                  ]),
+                );
+              const published = normalized(variables);
+              const knownIndex = after === null ? -1 : this.#after.indexOf(after);
+              const reuseHistory =
+                knownIndex > 0 &&
+                first === this.#pageSize &&
+                JSON.stringify(published) ===
+                  JSON.stringify(
+                    normalized({
+                      ...source?.getVariables(operation.id),
+                      ...this.#variables,
+                    }),
+                  );
+              const history = reuseHistory ? this.#after.slice(0, knownIndex + 1) : [null];
+              const hasPageNumbers = after === null || (reuseHistory && this.#hasPageNumbers);
+              // Cursor values do not encode a page number. The first page is the fallback
+              // predecessor of an external cursor when no matching history exists.
+              if (after !== null && !reuseHistory) history.push(after);
+              this.#resetPage();
+              this.#variables = structuredClone(published);
+              if (first !== undefined) this.#pageSize = first;
+              const index = history.length - 1;
+              this.#after = history;
+              this.#hasPageNumbers = hasPageNumbers;
+              this.#page = { index, result };
+              this.#requestedPage = index;
+              this.#status = 'ready';
+              this.render();
+              return;
+            }
+            if (change.kind === 'session') this.#resetChanges();
+            if (change.kind === 'parameters' || change.kind === 'session') {
+              this.#variables = undefined;
+              void this.refresh();
+            }
+          });
     this.#pageSize = this.#initialPageSize();
     const generation = this.#generation;
     this.#resetPage();
@@ -409,29 +456,40 @@ export class DataGridGraphQL {
     this.#requestedPage = index;
     this.#status = 'loading';
     this.#queryError = undefined;
-    const pagination = operation.pagination === undefined ? {} : {
-      first: this.#pageSize,
-      after: this.#after[index] ?? null,
-    };
+    const pagination =
+      operation.pagination === undefined
+        ? {}
+        : {
+            first: this.#pageSize,
+            after: this.#after[index] ?? null,
+          };
     const variables = this.#variables;
-    const read = Promise.resolve().then(() => source.executePageById(operation.id, {
-      ...pagination,
-      ...(variables === undefined ? {} : { variables }),
-      publish: false,
-      signal: request.signal,
-    })).then((result) => {
-      if (request.signal.aborted) return;
-      this.#page = { index, result };
-      this.#status = 'ready';
-    }, (reason: unknown) => {
-      if (request.signal.aborted) return;
-      this.#queryError = errorFrom(reason);
-      this.#status = 'error';
-    }).finally(() => {
-      if (this.#query !== request) return;
-      this.#query = undefined;
-      this.render();
-    });
+    const read = Promise.resolve()
+      .then(() =>
+        source.executePageById(operation.id, {
+          ...pagination,
+          ...(variables === undefined ? {} : { variables }),
+          publish: false,
+          signal: request.signal,
+        }),
+      )
+      .then(
+        (result) => {
+          if (request.signal.aborted) return;
+          this.#page = { index, result };
+          this.#status = 'ready';
+        },
+        (reason: unknown) => {
+          if (request.signal.aborted) return;
+          this.#queryError = errorFrom(reason);
+          this.#status = 'error';
+        },
+      )
+      .finally(() => {
+        if (this.#query !== request) return;
+        this.#query = undefined;
+        this.render();
+      });
     this.render();
     return read;
   }
@@ -443,8 +501,14 @@ export class DataGridGraphQL {
     for (const kind of ['insert', 'update', 'delete'] as const) {
       const id = configuration[`${kind}OperationId`];
       const operation = id === null ? undefined : this.#source?.getOperation(id);
-      if (operation?.kind !== kind || operation.database !== query.database || operation.table !== query.table) continue;
-      if (kind !== 'delete' && !operation.parameters.some(({ source }) => source.role === 'input')) continue;
+      if (
+        operation?.kind !== kind ||
+        operation.database !== query.database ||
+        operation.table !== query.table
+      )
+        continue;
+      if (kind !== 'delete' && !operation.parameters.some(({ source }) => source.role === 'input'))
+        continue;
       const keyPaths = operation.parameters.flatMap(({ source }) =>
         source.role === 'filter' && source.identityEligible === true ? [source.fieldPath] : [],
       );
@@ -452,11 +516,17 @@ export class DataGridGraphQL {
     }
   }
 
-  public mutation(kind: WebDataGridMutationKind, row: WebGraphQLRow | null = null): WebGraphQLRuntimeOperation | undefined {
+  public mutation(
+    kind: WebDataGridMutationKind,
+    row: WebGraphQLRow | null = null,
+  ): WebGraphQLRuntimeOperation | undefined {
     if (this.#source?.authenticated !== true) return undefined;
     const definition = this.#mutations.get(kind);
     if (definition === undefined) return undefined;
-    if (kind !== 'insert' && (row === null || !definition.keyPaths.some((path) => isRowKey(fieldValue(row, path))))) {
+    if (
+      kind !== 'insert' &&
+      (row === null || !definition.keyPaths.some((path) => isRowKey(fieldValue(row, path))))
+    ) {
       return undefined;
     }
     return definition.operation;
@@ -468,16 +538,20 @@ export class DataGridGraphQL {
     row: WebGraphQLRow | null,
     draft: WebDataGridPendingChange | null,
   ): WebGraphQLValue | undefined {
-    if (draft !== null && Object.hasOwn(draft.values, parameter.name)) return draft.values[parameter.name];
+    if (draft !== null && Object.hasOwn(draft.values, parameter.name))
+      return draft.values[parameter.name];
     const value = fieldValue(row, parameter.source.fieldPath);
     if (value !== undefined) return value;
     return this.#source?.getVariables(operation.id)[parameter.name];
   }
 
   public get hasRowActions(): boolean {
-    return this.#configuration?.crudEnabled === true &&
-      (this.#configuration.updateOperationId !== null || this.#configuration.deleteOperationId !== null ||
-        this.#configuration.insertOperationId !== null);
+    return (
+      this.#configuration?.crudEnabled === true &&
+      (this.#configuration.updateOperationId !== null ||
+        this.#configuration.deleteOperationId !== null ||
+        this.#configuration.insertOperationId !== null)
+    );
   }
 
   public stage(
@@ -488,17 +562,24 @@ export class DataGridGraphQL {
   ): void {
     if (this.saving) throw new Error('Wait until the current save finishes.');
     const operation = this.mutation(kind, row);
-    if (operation === undefined) throw new Error(`Configure a valid GraphQL ${kind} operation for this row.`);
-    const inputNames = new Set(operation.parameters.filter((parameter) => parameter.source.role === 'input').map((parameter) => parameter.name));
+    if (operation === undefined)
+      throw new Error(`Configure a valid GraphQL ${kind} operation for this row.`);
+    const inputNames = new Set(
+      operation.parameters
+        .filter((parameter) => parameter.source.role === 'input')
+        .map((parameter) => parameter.name),
+    );
     for (const name of Object.keys(input)) {
       if (!inputNames.has(name)) throw new Error(`Unknown input parameter "${name}".`);
     }
     const values = Object.create(null) as Record<string, WebGraphQLValue>;
     const base = this.#source?.getVariables(operation.id) ?? {};
-    const previous = previousId === undefined
-      ? this.#changes.find((draft) => row !== null && matchesRow(draft, row))
-      : this.#changes.find((draft) => draft.id === previousId);
-    if (previous?.outcome === 'uncertain') throw new Error('Review the uncertain save before editing this row.');
+    const previous =
+      previousId === undefined
+        ? this.#changes.find((draft) => row !== null && matchesRow(draft, row))
+        : this.#changes.find((draft) => draft.id === previousId);
+    if (previous?.outcome === 'uncertain')
+      throw new Error('Review the uncertain save before editing this row.');
     let overlay: WebGraphQLRow = row ?? {};
     for (const parameter of operation.parameters) {
       let value = base[parameter.name];
@@ -506,10 +587,15 @@ export class DataGridGraphQL {
         const fromRow = fieldValue(row, parameter.source.fieldPath);
         if (fromRow !== undefined) value = fromRow;
       } else if (parameter.source.role === 'input') {
-        if (previous?.operationId === operation.id && Object.hasOwn(previous.values, parameter.name)) {
+        if (
+          previous?.operationId === operation.id &&
+          Object.hasOwn(previous.values, parameter.name)
+        ) {
           value = previous.values[parameter.name];
         } else if (kind === 'update') {
-          value = parameter.required ? fieldValue(row, parameter.source.fieldPath) ?? value : undefined;
+          value = parameter.required
+            ? (fieldValue(row, parameter.source.fieldPath) ?? value)
+            : undefined;
         }
         if (Object.hasOwn(input, parameter.name)) value = input[parameter.name];
       }
@@ -522,8 +608,13 @@ export class DataGridGraphQL {
         overlay = withField(overlay, tokens(parameter.source.fieldPath), value);
       }
     }
-    if (kind === 'update' && !operation.parameters.some((parameter) =>
-      parameter.source.role === 'input' && Object.hasOwn(values, parameter.name))) return;
+    if (
+      kind === 'update' &&
+      !operation.parameters.some(
+        (parameter) => parameter.source.role === 'input' && Object.hasOwn(values, parameter.name),
+      )
+    )
+      return;
     const keys = row === null ? {} : rowKeys(this.#mutations.get(kind)?.keyPaths ?? [], row);
     const change: PendingChange = structuredClone({
       id: previous?.id ?? ++this.#lastChangeId,
@@ -535,9 +626,10 @@ export class DataGridGraphQL {
       overlay,
       outcome: 'pending',
     });
-    this.#changes = previous === undefined
-      ? [...this.#changes, change]
-      : this.#changes.map((candidate) => candidate.id === change.id ? change : candidate);
+    this.#changes =
+      previous === undefined
+        ? [...this.#changes, change]
+        : this.#changes.map((candidate) => (candidate.id === change.id ? change : candidate));
     this.#changed();
   }
 
@@ -566,7 +658,11 @@ export class DataGridGraphQL {
     return this.#save;
   }
 
-  async #applyChanges(source: WebGraphQLSource, generation: number, changes: readonly PendingChange[]): Promise<void> {
+  async #applyChanges(
+    source: WebGraphQLSource,
+    generation: number,
+    changes: readonly PendingChange[],
+  ): Promise<void> {
     let applied = 0;
     let failure: { change: PendingChange; error: Error } | undefined;
     try {
@@ -574,14 +670,17 @@ export class DataGridGraphQL {
         if (generation !== this.#generation) return;
         let unexpectedCount = false;
         try {
-          if (change.outcome === 'uncertain') throw new Error('Review the uncertain save before retrying.');
+          if (change.outcome === 'uncertain')
+            throw new Error('Review the uncertain save before retrying.');
           const result = await source.executeMutationById(change.operationId, change.values, {
             mergeVariables: false,
           });
           if (generation !== this.#generation) return;
           if (result.affectedCount !== 1) {
             unexpectedCount = result.affectedCount !== 0;
-            throw new Error('Expected one affected record. Refresh the grid and review the pending change.');
+            throw new Error(
+              'Expected one affected record. Refresh the grid and review the pending change.',
+            );
           }
           this.#changes = this.#changes.filter((candidate) => candidate.id !== change.id);
           applied += 1;
@@ -590,7 +689,9 @@ export class DataGridGraphQL {
           const error = errorFrom(reason);
           const uncertain = unexpectedCount || ('outcome' in error && error.outcome === 'unknown');
           const failed: PendingChange = uncertain ? { ...change, outcome: 'uncertain' } : change;
-          this.#changes = this.#changes.map((candidate) => candidate.id === failed.id ? failed : candidate);
+          this.#changes = this.#changes.map((candidate) =>
+            candidate.id === failed.id ? failed : candidate,
+          );
           failure = { change: failed, error };
           break;
         }
@@ -605,7 +706,11 @@ export class DataGridGraphQL {
     this.render();
     const detail = { applied, pendingChanges: this.pendingChanges };
     if (failure !== undefined) {
-      this.emit('OnSaveError', { ...detail, change: publicChange(failure.change), error: failure.error });
+      this.emit('OnSaveError', {
+        ...detail,
+        change: publicChange(failure.change),
+        error: failure.error,
+      });
       throw failure.error;
     }
     this.emit('OnSaveChanges', detail);

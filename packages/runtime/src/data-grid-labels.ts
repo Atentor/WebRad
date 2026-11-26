@@ -80,6 +80,10 @@ export function normalizeWebDataGridEditorFieldLabels(
   return labels;
 }
 
-export function formatDataGridLabel(template: string, token: string, value: string | number): string {
+export function formatDataGridLabel(
+  template: string,
+  token: string,
+  value: string | number,
+): string {
   return template.replaceAll(`{${token}}`, () => String(value));
 }

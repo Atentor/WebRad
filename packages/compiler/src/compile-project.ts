@@ -63,10 +63,12 @@ function validateGraphQLListSource(
   settings: WebRadProject['settings'],
   report: (field: string, message: string) => void,
   sourceField: 'graphql.clientId' | 'graphqlClientId',
-): {
-  readonly query: ProjectGraphQLOperation;
-  readonly operations: readonly ProjectGraphQLOperation[];
-} | undefined {
+):
+  | {
+      readonly query: ProjectGraphQLOperation;
+      readonly operations: readonly ProjectGraphQLOperation[];
+    }
+  | undefined {
   if (!settings.restGo.enabled) {
     report(sourceField, 'Enable the RestGo connection before binding a GraphQL query.');
     return undefined;
@@ -78,15 +80,13 @@ function validateGraphQLListSource(
     report(sourceField, 'Select a GraphQL Client in the same document.');
     return undefined;
   }
-  const operations = selectComponentGraphQLOperations(
-    client,
-    settings.graphQLOperations ?? [],
-  );
-  const query = operations.find(
-    (item) => item.id === operationId && item.runtime.kind === 'query',
-  );
+  const operations = selectComponentGraphQLOperations(client, settings.graphQLOperations ?? []);
+  const query = operations.find((item) => item.id === operationId && item.runtime.kind === 'query');
   if (query === undefined || query.responseSchema.root.kind !== 'list') {
-    report('operationId', 'Select a GraphQL query from this client that returns a list of records.');
+    report(
+      'operationId',
+      'Select a GraphQL query from this client that returns a list of records.',
+    );
     return undefined;
   }
   return { query, operations };
@@ -419,7 +419,10 @@ function validateRegistry(
             (candidate) => candidate.id === binding.apiClientId,
           );
           if (apiClient?.type !== 'WebApiClient') {
-            report('apiClientId', 'WebComboBox must reference a WebApiClient in the same document.');
+            report(
+              'apiClientId',
+              'WebComboBox must reference a WebApiClient in the same document.',
+            );
             continue;
           }
           const apiConfiguration = ApiClientConfigurationSchema.safeParse(
@@ -476,7 +479,9 @@ function validateRegistry(
           );
           const query = source?.query;
           if (query !== undefined) {
-            const fields = new Set(comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path));
+            const fields = new Set(
+              comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path),
+            );
             for (const [index, column] of configuration.data.columns.entries()) {
               if (column.fieldPath.length === 0 || fields.has(column.fieldPath)) continue;
               diagnostics.push({
@@ -490,14 +495,20 @@ function validateRegistry(
           if (source !== undefined && graphql.crudEnabled) {
             const kinds = ['insert', 'update', 'delete'] as const;
             if (kinds.every((kind) => graphql[`${kind}OperationId`] === null)) {
-              report('graphql.crudEnabled', 'Choose at least one GraphQL mutation to edit records.');
+              report(
+                'graphql.crudEnabled',
+                'Choose at least one GraphQL mutation to edit records.',
+              );
             }
             for (const kind of kinds) {
               const field = `${kind}OperationId` as const;
               const id = graphql[field];
               if (id === null) continue;
               const mutation = source.operations.find((item) => item.id === id);
-              if (mutation === undefined || !isDataGridGraphQLMutation(source.query, mutation, kind)) {
+              if (
+                mutation === undefined ||
+                !isDataGridGraphQLMutation(source.query, mutation, kind)
+              ) {
                 report(
                   `graphql.${field}`,
                   `Choose a compatible ${kind} mutation from this client.`,

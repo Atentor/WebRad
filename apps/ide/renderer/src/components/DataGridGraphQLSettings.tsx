@@ -61,33 +61,47 @@ export function DataGridGraphQLSettings({
             value={binding.pageSize}
             onChange={(event) => {
               const size = event.currentTarget.valueAsNumber;
-              if (Number.isInteger(size) && size >= 1 && size <= maxPageSize) onChange({ pageSize: size });
+              if (Number.isInteger(size) && size >= 1 && size <= maxPageSize)
+                onChange({ pageSize: size });
             }}
           />
         </label>
-        {binding.crudEnabled && mutationFields.map(([kind, key, label]) => {
-          const available = query === undefined ? [] : operations.filter((operation) =>
-            isDataGridGraphQLMutation(query, operation, kind),
-          );
-          return (
-            <label key={key}>
-              <span>{label}</span>
-              <select
-                value={binding[key] ?? ''}
-                onChange={(event) => onChange({ [key]: event.currentTarget.value || null })}
-              >
-                <option value="">(disabled)</option>
-                {binding[key] !== null && !available.some(({ id }) => id === binding[key]) && (
-                  <option value={binding[key]} disabled>(unavailable operation)</option>
-                )}
-                {available.map(({ id, name }) => <option value={id} key={id}>{name}</option>)}
-              </select>
-            </label>
-          );
-        })}
+        {binding.crudEnabled &&
+          mutationFields.map(([kind, key, label]) => {
+            const available =
+              query === undefined
+                ? []
+                : operations.filter((operation) =>
+                    isDataGridGraphQLMutation(query, operation, kind),
+                  );
+            return (
+              <label key={key}>
+                <span>{label}</span>
+                <select
+                  value={binding[key] ?? ''}
+                  onChange={(event) => onChange({ [key]: event.currentTarget.value || null })}
+                >
+                  <option value="">(disabled)</option>
+                  {binding[key] !== null && !available.some(({ id }) => id === binding[key]) && (
+                    <option value={binding[key]} disabled>
+                      (unavailable operation)
+                    </option>
+                  )}
+                  {available.map(({ id, name }) => (
+                    <option value={id} key={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          })}
       </div>
       {binding.crudEnabled && (
-        <p>Use a key field from the query in an equality condition for update and delete. Handle OnChangesChanged to choose when to call SaveChanges.</p>
+        <p>
+          Use a key field from the query in an equality condition for update and delete. Handle
+          OnChangesChanged to choose when to call SaveChanges.
+        </p>
       )}
     </>
   );

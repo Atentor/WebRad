@@ -1,5 +1,19 @@
 # WebRAD delivery plan
 
+## Windows validation on 2026-11-26
+
+The GraphQL Client retains query and mutation types when callers pass operation
+references. Optional prepared parameters can be cleared. Monaco exposes the
+public runtime API, and the Aurora RestGo session example includes a GraphQL
+Client. The Data Grid column list gives its options readable accessible names.
+The RestGo import, responsive Repeating Group, and video playback fixtures
+exercise the current editor and compiled Preview.
+
+Windows x64 validation with Chrome passed all 1,817 tests across 242 files.
+All 15 local smoke commands passed, including the packaged updater fixture.
+The production dependency audit reported zero vulnerabilities. Evidence is
+retained in `artifacts/validation-2026-11-26/`.
+
 ## IDE modal backdrop rendering
 
 The shared modal and native GraphQL Client backdrops use translucent dimming

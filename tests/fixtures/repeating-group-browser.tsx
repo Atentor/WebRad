@@ -72,7 +72,12 @@ async function run() {
       break;
     await pause();
   }
-  const runtimeDocument = frame.contentDocument!;
+  const runtimeDocument = frame.contentDocument;
+  if (runtimeDocument?.querySelector('[data-webrad-name="Name0"]')?.textContent !== 'Ana') {
+    throw new Error(
+      `Compiled Preview did not load its first API row (${runtimeDocument?.readyState ?? 'no frame document'}).`,
+    );
+  }
   let cases = 0;
   for (const width of [960, 640, 320]) {
     const surface = document.querySelector<HTMLElement>('.wr-page-surface')!;
@@ -155,16 +160,26 @@ async function run() {
   );
   runtimeDocument.querySelector<HTMLButtonElement>('[data-webrad-name="Choose2"]')!.click();
   runtimeDocument.querySelector<HTMLButtonElement>('[data-webrad-name="Reload"]')!.click();
-  await pause(300);
-  assert(
-    runtimeDocument.querySelector('[data-webrad-name="Result"]')!.textContent === 'Async Ana:2',
-    'Async row context or private page field changed',
-  );
-  assert(
+  const reloadedNames = (): string =>
     [...runtimeDocument.querySelectorAll('[data-webrad-name="Name2"]')]
       .map((element) => element.textContent)
-      .join(',') === 'Ana updated,Bruno updated',
-    'reload did not replace both rows',
+      .join(',');
+  const resultCaption = (): string | null | undefined =>
+    runtimeDocument.querySelector('[data-webrad-name="Result"]')?.textContent;
+  const reloadDeadline = performance.now() + 3_000;
+  while (
+    (reloadedNames() !== 'Ana updated,Bruno updated' || resultCaption() !== 'Async Ana:2') &&
+    performance.now() < reloadDeadline
+  ) {
+    await pause();
+  }
+  assert(
+    resultCaption() === 'Async Ana:2',
+    `async row context or private page field changed: ${resultCaption()}`,
+  );
+  assert(
+    reloadedNames() === 'Ana updated,Bruno updated',
+    `reload did not replace both rows: ${reloadedNames()}`,
   );
   const ids = [...runtimeDocument.querySelectorAll<HTMLElement>('[data-webrad-id]')].map(
     (element) => element.dataset.webradId,

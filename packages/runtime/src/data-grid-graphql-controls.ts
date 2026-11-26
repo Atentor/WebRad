@@ -27,9 +27,7 @@ function errorText(grid: DataGridGraphQL, labels: ResolvedDataGridLabels): strin
   const error = grid.saveError ?? grid.queryError;
   if (error === undefined) return '';
   const uncertain = grid.hasUncertainChanges;
-  return uncertain
-    ? `${error.message} ${labels.uncertainSave}`
-    : error.message;
+  return uncertain ? `${error.message} ${labels.uncertainSave}` : error.message;
 }
 
 export function graphQLGridTools(
@@ -46,24 +44,45 @@ export function graphQLGridTools(
   }
   if (grid.hasChanges) {
     if (showSaveButton) {
-      tools.append(gridAction(document, 'save', labels.save, () => {
-        void grid.saveChanges().catch(() => {
-          // The controller records the error in the toolbar and emits OnSaveError.
-        });
-      }, grid.saving));
+      tools.append(
+        gridAction(
+          document,
+          'save',
+          labels.save,
+          () => {
+            void grid.saveChanges().catch(() => {
+              // The controller records the error in the toolbar and emits OnSaveError.
+            });
+          },
+          grid.saving,
+        ),
+      );
     }
-    tools.append(gridAction(document, 'discard', labels.discard, () => grid.cancelChanges(), grid.saving));
+    tools.append(
+      gridAction(document, 'discard', labels.discard, () => grid.cancelChanges(), grid.saving),
+    );
   }
   const status = document.createElement('span');
   status.className = 'wr-data-grid-graphql-status';
   status.setAttribute('role', 'status');
   const error = errorText(grid, labels);
-  status.textContent = error || (grid.saving ? labels.saving : grid.loading ? labels.loading :
-    grid.hasChanges ? labels.unsaved : '');
+  status.textContent =
+    error ||
+    (grid.saving
+      ? labels.saving
+      : grid.loading
+        ? labels.loading
+        : grid.hasChanges
+          ? labels.unsaved
+          : '');
   status.dataset.error = String(error.length > 0);
   tools.append(status);
   if (grid.queryError !== undefined) {
-    tools.append(gridAction(document, 'retry', labels.retry, () => { void grid.retryPage(); }));
+    tools.append(
+      gridAction(document, 'retry', labels.retry, () => {
+        void grid.retryPage();
+      }),
+    );
   }
   if (!grid.showPager) {
     tools.hidden = tools.children.length === 1 && status.textContent === '';
@@ -73,8 +92,24 @@ export function graphQLGridTools(
   const pagination = document.createElement('nav');
   pagination.className = 'wr-data-grid-graphql-pager';
   pagination.setAttribute('aria-label', labels.pagination);
-  const previous = gridAction(document, 'previous', labels.previous, () => { void grid.previousPage(); }, !grid.canGoBack);
-  const next = gridAction(document, 'next', labels.next, () => { void grid.nextPage(); }, !grid.canGoForward);
+  const previous = gridAction(
+    document,
+    'previous',
+    labels.previous,
+    () => {
+      void grid.previousPage();
+    },
+    !grid.canGoBack,
+  );
+  const next = gridAction(
+    document,
+    'next',
+    labels.next,
+    () => {
+      void grid.nextPage();
+    },
+    !grid.canGoForward,
+  );
   const summary = document.createElement('span');
   summary.className = 'wr-data-grid-graphql-page';
   summary.dataset.webradGridAction = 'page-summary';
@@ -82,9 +117,10 @@ export function graphQLGridTools(
   summary.setAttribute('aria-live', 'polite');
   const total = grid.totalCount;
   const pageNumber = grid.pageNumber;
-  summary.textContent = (pageNumber === null
-    ? labels.cursorSummary
-    : formatDataGridLabel(labels.pageSummary, 'page', pageNumber)) +
+  summary.textContent =
+    (pageNumber === null
+      ? labels.cursorSummary
+      : formatDataGridLabel(labels.pageSummary, 'page', pageNumber)) +
     (total === null ? '' : ` · ${formatDataGridLabel(labels.totalSummary, 'total', total)}`);
   const pageSize = document.createElement('select');
   pageSize.setAttribute('aria-label', labels.rowsPerPage);
@@ -102,17 +138,24 @@ export function graphQLGridTools(
     pageSize.append(option);
   }
   pageSize.value = String(grid.pageSize);
-  pageSize.addEventListener('change', () => { void grid.setPageSize(Number(pageSize.value)); });
+  pageSize.addEventListener('change', () => {
+    void grid.setPageSize(Number(pageSize.value));
+  });
   pagination.append(previous, summary, next, pageSize);
   tools.append(pagination);
   return tools;
 }
 
-function valueLabel(parameter: WebGraphQLParameter, fieldLabels: Readonly<Record<string, string>>): string {
+function valueLabel(
+  parameter: WebGraphQLParameter,
+  fieldLabels: Readonly<Record<string, string>>,
+): string {
   const path = parameter.source.fieldPath;
   if (Object.hasOwn(fieldLabels, path)) return fieldLabels[path] ?? parameter.name;
   const field = path.split('/').at(-1);
-  return field === undefined || field === '' ? parameter.name : field.replaceAll('~1', '/').replaceAll('~0', '~');
+  return field === undefined || field === ''
+    ? parameter.name
+    : field.replaceAll('~1', '/').replaceAll('~0', '~');
 }
 
 function usesJsonEditor(parameter: WebGraphQLParameter): boolean {
@@ -145,8 +188,12 @@ function readInput(
     case 'number':
     case 'integer': {
       const number = Number(value);
-      if (!Number.isFinite(number) || (parameter.kind === 'integer' && !Number.isSafeInteger(number))) {
-        const template = parameter.kind === 'integer' ? labels.invalidInteger : labels.invalidNumber;
+      if (
+        !Number.isFinite(number) ||
+        (parameter.kind === 'integer' && !Number.isSafeInteger(number))
+      ) {
+        const template =
+          parameter.kind === 'integer' ? labels.invalidInteger : labels.invalidNumber;
         throw new Error(formatDataGridLabel(template, 'field', label));
       }
       return number;
@@ -177,9 +224,16 @@ function editorField(
     for (const value of ['', ...options]) {
       const option = document.createElement('option');
       option.value = value;
-      option.textContent = value === ''
-        ? (parameter.required ? labels.selectValue : labels.noValue)
-        : parameter.enumValues.length > 0 ? value : value === 'true' ? labels.trueValue : labels.falseValue;
+      option.textContent =
+        value === ''
+          ? parameter.required
+            ? labels.selectValue
+            : labels.noValue
+          : parameter.enumValues.length > 0
+            ? value
+            : value === 'true'
+              ? labels.trueValue
+              : labels.falseValue;
       select.append(option);
     }
     select.value = current === null || current === undefined ? '' : String(current);
@@ -226,7 +280,9 @@ export function openGraphQLGridEditor(
     caption.textContent = text;
     const control = editorField(document, parameter, current, labels);
     const field = { parameter, control, text, changed: false };
-    const changed = (): void => { field.changed = true; };
+    const changed = (): void => {
+      field.changed = true;
+    };
     control.addEventListener('input', changed);
     control.addEventListener('change', changed);
     label.append(caption, control);
@@ -247,19 +303,25 @@ export function openGraphQLGridEditor(
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     try {
-      const values = Object.fromEntries(fields.flatMap(({ parameter, control, text, changed }) =>
-        changed ? [[parameter.name, readInput(parameter, control.value, text, labels)]] : [],
-      ));
+      const values = Object.fromEntries(
+        fields.flatMap(({ parameter, control, text, changed }) =>
+          changed ? [[parameter.name, readInput(parameter, control.value, text, labels)]] : [],
+        ),
+      );
       grid.stage(kind, row, values, draft?.id);
       dialog.close();
     } catch (reason: unknown) {
       feedback.textContent = reason instanceof Error ? reason.message : String(reason);
     }
   });
-  dialog.addEventListener('close', () => {
-    dialog.remove();
-    closed();
-  }, { once: true });
+  dialog.addEventListener(
+    'close',
+    () => {
+      dialog.remove();
+      closed();
+    },
+    { once: true },
+  );
   dialog.append(form);
   document.body.append(dialog);
   dialog.showModal();

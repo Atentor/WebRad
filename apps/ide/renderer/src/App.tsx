@@ -234,10 +234,12 @@ function selectionNodes(page: PageModel | null, ids: readonly string[]): readonl
   return page.components.filter((component) => idSet.has(component.id));
 }
 
-function graphQLBinding(component: ComponentNode): {
-  readonly clientId: string | null;
-  readonly operationIds: readonly (string | null)[];
-} | undefined {
+function graphQLBinding(component: ComponentNode):
+  | {
+      readonly clientId: string | null;
+      readonly operationIds: readonly (string | null)[];
+    }
+  | undefined {
   if (component.type === 'WebDataGrid') {
     const grid = normalizeDataGridConfiguration(component.props.dataGridConfig);
     const binding = grid.graphql;
@@ -1737,12 +1739,15 @@ export function App(): ReactElement {
           .map((operation) => operation.id)
           .filter((id) => !ids.has(id)),
       );
-      const documents = removed.size === 0 || project === null
-        ? []
-        : [...project.pages, ...project.reusableElements];
+      const documents =
+        removed.size === 0 || project === null
+          ? []
+          : [...project.pages, ...project.reusableElements];
       for (const document of documents) {
         for (const component of document.components) {
-          if (graphQLBinding(component)?.operationIds.some((id) => id !== null && removed.has(id))) {
+          if (
+            graphQLBinding(component)?.operationIds.some((id) => id !== null && removed.has(id))
+          ) {
             throw new Error(
               `Remove the GraphQL binding from ${document.name}.${component.name} before deleting the operation.`,
             );
@@ -1784,7 +1789,10 @@ export function App(): ReactElement {
   const prepareToReplaceProject = useCallback(async (): Promise<boolean> => {
     if (!window.dispatchEvent(new Event('webrad:commit-editor-drafts', { cancelable: true })))
       return false;
-    if (restGoPendingChanges && !window.confirm('Discard the unapplied RestGo connection, endpoint, or GraphQL changes?')) {
+    if (
+      restGoPendingChanges &&
+      !window.confirm('Discard the unapplied RestGo connection, endpoint, or GraphQL changes?')
+    ) {
       openRestGo();
       return false;
     }

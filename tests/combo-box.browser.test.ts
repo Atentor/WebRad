@@ -146,7 +146,7 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
           .poll(
             async () =>
               evaluate(
-                `Boolean(document.querySelector('[aria-label="${mode === 'api' ? 'ComboBox API Client' : 'ComboBox Items'}"]')) && document.querySelector('iframe').contentDocument.querySelector('select')?.options.length === 2`,
+                `Boolean(document.querySelector('[aria-label="${mode === 'api' ? 'ComboBox data source' : 'ComboBox Items'}"]')) && document.querySelector('iframe').contentDocument.querySelector('select')?.options.length === 2`,
               ),
             { timeout: 15000 },
           )
@@ -154,7 +154,7 @@ it.runIf(browserPath !== undefined).each(['api', 'static'] as const)(
         if (mode === 'api') {
           await evaluate(`(() => {
         const change = (label, value) => { const select = document.querySelector('[aria-label="' + label + '"]'); select.value = value; select.dispatchEvent(new Event('change', { bubbles: true })); };
-        change('ComboBox API Client', 'customers-api');
+        change('ComboBox data source', 'customers-api');
       })()`);
           await expect
             .poll(async () =>

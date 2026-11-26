@@ -29,10 +29,12 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
         );
         return;
       }
-      const [type, body] = routes[request.url ?? ''] ?? [
-        'text/html',
-        '<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:2200px}iframe{border:0;width:960px;height:2200px}</style></head><body><div id="root"></div><iframe title="Preview" src="/index.html"></iframe><script type="module" src="/app.js"></script></body></html>',
-      ];
+      const route = routes[request.url ?? ''];
+      if (!route) {
+        response.writeHead(404).end();
+        return;
+      }
+      const [type, body] = route;
       response.writeHead(200, { 'Content-Type': type });
       response.end(body);
     });
@@ -116,7 +118,14 @@ it.runIf(browser !== undefined).each(['fixed', 'dynamic'] as const)(
       ];
       routes['/project.css'] = ['text/css', await compileTailwindStyles(project.styles)];
       routes['/project'] = ['application/json', JSON.stringify(project)];
-      routes['/index.html'] = ['text/html', compiled.previewHtml!];
+      const preview = compiled
+        .previewHtml!.replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;');
+      routes['/'] = [
+        'text/html',
+        `<!doctype html><html><head><link rel="stylesheet" href="/app.css"><style>body{margin:0}#root{width:1000px;height:2200px}iframe{border:0;width:960px;height:2200px}</style></head><body><div id="root"></div><iframe title="Preview" srcdoc="${preview}"></iframe><script type="module" src="/app.js"></script></body></html>`,
+      ];
       await withChromium(browser!, baseUrl, async (send) => {
         let evidence:
           | {

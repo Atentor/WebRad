@@ -36,11 +36,8 @@ import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { DataGridGraphQLSettings } from './DataGridGraphQLSettings';
 import { DataGridLabelsSettings } from './DataGridLabelsSettings';
-import {
-  ApiClientOperationOptions,
-  apiEndpointOption,
-  graphqlQueryOption,
-} from './ApiClientOperationOptions';
+import { ApiClientOperationOptions } from './ApiClientOperationOptions';
+import { apiEndpointOption, graphqlQueryOption } from './api-client-operation-options';
 
 export interface DataGridConfigurationDialogProps {
   readonly component: ComponentNode;
@@ -332,9 +329,8 @@ export function DataGridConfigurationDialog({
 
   useEffect(() => {
     if (activeTab !== 'columns') return;
-    const selected = columnListRef.current?.querySelector<HTMLButtonElement>(
-      '[aria-selected="true"]',
-    );
+    const selected =
+      columnListRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]');
     if (focusColumnRef.current) selected?.focus();
     selected?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     focusColumnRef.current = false;
@@ -516,9 +512,7 @@ export function DataGridConfigurationDialog({
                       updateDraft((current) => ({
                         ...current,
                         apiClientId: mode === 'graphql-client' ? null : current.apiClientId,
-                        graphql: mode === 'api-client'
-                          ? undefined
-                          : newGraphQLBinding(null),
+                        graphql: mode === 'api-client' ? undefined : newGraphQLBinding(null),
                         operationId: null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, []),
@@ -539,9 +533,7 @@ export function DataGridConfigurationDialog({
                       updateDraft((current) => ({
                         ...current,
                         apiClientId: graphQL === undefined ? selectedId : null,
-                        graphql: graphQL === undefined
-                          ? undefined
-                          : newGraphQLBinding(selectedId),
+                        graphql: graphQL === undefined ? undefined : newGraphQLBinding(selectedId),
                         operationId: null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, []),
@@ -586,9 +578,10 @@ export function DataGridConfigurationDialog({
                           : comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields;
                       updateDraft((current) => ({
                         ...current,
-                        graphql: graphQL === undefined
-                          ? undefined
-                          : newGraphQLBinding(graphQL.clientId, nextQuery),
+                        graphql:
+                          graphQL === undefined
+                            ? undefined
+                            : newGraphQLBinding(graphQL.clientId, nextQuery),
                         operationId: nextQuery?.id ?? nextEndpoint?.id ?? null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(current.columns, fields),
@@ -915,7 +908,7 @@ export function DataGridConfigurationDialog({
                           title={item.header || undefined}
                           onClick={() => selectColumn(item.id)}
                         >
-                          <span>{item.header || `Column ${String(position + 1)}`}</span>
+                          <span>{item.header || `Column ${String(position + 1)}`}</span>{' '}
                           <small>{CELL_KIND_LABELS[item.cellKind]}</small>
                         </button>
                       </li>

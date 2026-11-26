@@ -7,7 +7,11 @@ import {
 import { useEffect, useMemo, useState, type FormEvent, type ReactElement } from 'react';
 import type { RestGoAdminGraphQLDatabase } from '../../../shared/restgo-admin';
 import { Icon } from './Icon';
-import { RemoveField, RestGoGraphQLConditionGroup, RestGoGraphQLMutationInputs } from './RestGoGraphQLParameters';
+import {
+  RemoveField,
+  RestGoGraphQLConditionGroup,
+  RestGoGraphQLMutationInputs,
+} from './RestGoGraphQLParameters';
 import {
   buildGraphQLSpec,
   describeGraphQLTables,
@@ -42,11 +46,28 @@ interface RestGoGraphQLWorkspaceProps {
 }
 
 export function RestGoGraphQLWorkspace({
-  active, baseUrl, defaultDatabase, refreshVersion, operations, onSave, onDirtyChange, onMetadataFailure,
+  active,
+  baseUrl,
+  defaultDatabase,
+  refreshVersion,
+  operations,
+  onSave,
+  onDirtyChange,
+  onMetadataFailure,
 }: RestGoGraphQLWorkspaceProps): ReactElement {
-  const [databases, setDatabases] = useState<readonly RestGoAdminGraphQLDatabase[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [catalogError, setCatalogError] = useState('');
+  const catalogRequest = useMemo(
+    () => (active ? { baseUrl, refreshVersion, onMetadataFailure } : null),
+    [active, baseUrl, refreshVersion, onMetadataFailure],
+  );
+  const [catalogResult, setCatalogResult] = useState<{
+    readonly request: NonNullable<typeof catalogRequest>;
+    readonly databases: readonly RestGoAdminGraphQLDatabase[];
+    readonly error?: string;
+  } | null>(null);
+  const catalog = catalogResult?.request === catalogRequest ? catalogResult : null;
+  const catalogLoading = catalogRequest !== null && catalog === null;
+  const catalogError = catalog?.error;
+  const databases = catalog?.databases ?? [];
   const [schemaState, setSchemaState] = useState<{
     readonly baseUrl: string;
     readonly databaseId: number;
@@ -63,9 +84,11 @@ export function RestGoGraphQLWorkspace({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const enabled = GRAPHQL_ACTIONS.flatMap((kind) => draft?.actions[kind] ?? []);
-  const dirty = draft !== null && (baseline === null || JSON.stringify(enabled) !== JSON.stringify(
-    GRAPHQL_ACTIONS.flatMap((kind) => baseline.actions[kind] ?? []),
-  ));
+  const dirty =
+    draft !== null &&
+    (baseline === null ||
+      JSON.stringify(enabled) !==
+        JSON.stringify(GRAPHQL_ACTIONS.flatMap((kind) => baseline.actions[kind] ?? [])));
   const database = databases.find((item) => item.slug === draft?.database);
   const databaseId = database?.id;
   const currentSchemaState =
@@ -86,53 +109,83 @@ export function RestGoGraphQLWorkspace({
   const savedTables = useMemo(() => groupGraphQLOperations(operations), [operations]);
   const searchText = search.trim().toLowerCase();
   const visibleTables = savedTables.filter((entry) =>
-    [entry.table, entry.database, ...entry.operations.flatMap((operation) => [operation.name, KINDS[operation.spec.kind]])]
-      .some((value) => value.toLowerCase().includes(searchText)),
+    [
+      entry.table,
+      entry.database,
+      ...entry.operations.flatMap((operation) => [operation.name, KINDS[operation.spec.kind]]),
+    ].some((value) => value.toLowerCase().includes(searchText)),
   );
   const tableChoices = draft ? tables?.get(draft.table) : undefined;
   const availableTables = [...(tables?.keys() ?? [])]
-    .filter((table) => !savedTables.some((entry) => entry.database === draft?.database && entry.table === table))
+    .filter(
+      (table) =>
+        !savedTables.some((entry) => entry.database === draft?.database && entry.table === table),
+    )
     .sort((left, right) => left.localeCompare(right));
   const selectedOperation = enabled.find(({ id }) => id === selectedOperationId) ?? enabled[0];
-  const selectedChoices = selectedOperation ? tableChoices?.[selectedOperation.spec.kind] : undefined;
-  const choice = selectedChoices?.find(({ rootField }) => rootField === selectedOperation?.spec.rootField);
+  const selectedChoices = selectedOperation
+    ? tableChoices?.[selectedOperation.spec.kind]
+    : undefined;
+  const choice = selectedChoices?.find(
+    ({ rootField }) => rootField === selectedOperation?.spec.rootField,
+  );
 
   useEffect(() => {
     onDirtyChange(dirty);
   }, [dirty, onDirtyChange]);
 
   useEffect(() => {
-    if (!active) return;
+    if (!catalogRequest) return;
     let canceled = false;
-    setCatalogLoading(true);
-    setCatalogError('');
-    void window.webrad.restgoAdmin.graphqlDatabases({ baseUrl }).then((next) => {
-      if (!canceled) setDatabases(next);
-    }).catch((reason: unknown) => {
-      if (canceled) return;
-      setDatabases([]);
-      setCatalogError(restGoErrorMessage(reason));
-      onMetadataFailure();
-    }).finally(() => {
-      if (!canceled) setCatalogLoading(false);
-    });
-    return () => { canceled = true; };
-  }, [active, baseUrl, refreshVersion, onMetadataFailure]);
+    void window.webrad.restgoAdmin
+      .graphqlDatabases({ baseUrl: catalogRequest.baseUrl })
+      .then((next) => {
+        if (!canceled) setCatalogResult({ request: catalogRequest, databases: next });
+      })
+      .catch((reason: unknown) => {
+        if (canceled) return;
+        setCatalogResult({
+          request: catalogRequest,
+          databases: [],
+          error: restGoErrorMessage(reason),
+        });
+        catalogRequest.onMetadataFailure();
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [catalogRequest]);
 
   useEffect(() => {
     if (!active || databaseId === undefined) return;
     let canceled = false;
-    void window.webrad.restgoAdmin.graphqlSchema({ baseUrl, id: databaseId }).then((next) => {
-      if (!canceled) setSchemaState({ baseUrl, databaseId, version: refreshVersion, schema: next });
-    }).catch((reason: unknown) => {
-      if (canceled) return;
-      setSchemaState({ baseUrl, databaseId, version: refreshVersion, schema: null, error: restGoErrorMessage(reason) });
-      onMetadataFailure();
-    });
-    return () => { canceled = true; };
+    void window.webrad.restgoAdmin
+      .graphqlSchema({ baseUrl, id: databaseId })
+      .then((next) => {
+        if (!canceled)
+          setSchemaState({ baseUrl, databaseId, version: refreshVersion, schema: next });
+      })
+      .catch((reason: unknown) => {
+        if (canceled) return;
+        setSchemaState({
+          baseUrl,
+          databaseId,
+          version: refreshVersion,
+          schema: null,
+          error: restGoErrorMessage(reason),
+        });
+        onMetadataFailure();
+      });
+    return () => {
+      canceled = true;
+    };
   }, [active, databaseId, baseUrl, refreshVersion, onMetadataFailure]);
 
-  const selectDraft = (next: GraphQLTableDraft | null, saved: boolean, operationId?: string): void => {
+  const selectDraft = (
+    next: GraphQLTableDraft | null,
+    saved: boolean,
+    operationId?: string,
+  ): void => {
     setDraft(next);
     setBaseline(saved ? next : null);
     setDisabledActions({});
@@ -174,13 +227,22 @@ export function RestGoGraphQLWorkspace({
     if (!draft) return;
     const { kind } = operation.spec;
     const entries = draft.actions[kind] ?? [];
-    setDraft({ ...draft, actions: {
-      ...draft.actions,
-      [kind]: entries.map((entry) => entry.id === operation.id ? operation : entry),
-    } });
+    setDraft({
+      ...draft,
+      actions: {
+        ...draft.actions,
+        [kind]: entries.map((entry) => (entry.id === operation.id ? operation : entry)),
+      },
+    });
   };
 
-  const canSave = !!draft?.table && !!onSave && dirty && !saving && !catalogLoading && (baseline !== null || enabled.length > 0);
+  const canSave =
+    !!draft?.table &&
+    !!onSave &&
+    dirty &&
+    !saving &&
+    !catalogLoading &&
+    (baseline !== null || enabled.length > 0);
 
   const save = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
@@ -189,9 +251,13 @@ export function RestGoGraphQLWorkspace({
     setNotice('');
     setSaving(true);
     try {
-      const previous = operations.filter((entry) => entry.database === draft.database && entry.runtime.table === draft.table);
+      const previous = operations.filter(
+        (entry) => entry.database === draft.database && entry.runtime.table === draft.table,
+      );
       const previousById = new Map(previous.map((entry) => [entry.id, entry]));
-      const allNames = new Set(operations.filter(({ id }) => !previousById.has(id)).map(({ name }) => name.toLowerCase()));
+      const allNames = new Set(
+        operations.filter(({ id }) => !previousById.has(id)).map(({ name }) => name.toLowerCase()),
+      );
       const next = new Map<string, ProjectGraphQLOperation>();
       for (const operation of enabled) {
         const { id, spec } = operation;
@@ -203,26 +269,52 @@ export function RestGoGraphQLWorkspace({
           if (saved && original === operation) {
             next.set(id, saved);
           } else {
-            const available = tableChoices?.[spec.kind]?.find(({ rootField }) => rootField === spec.rootField);
-            if (!database || !schema || !available) throw new Error('The published operation is unavailable.');
-            next.set(id, buildProjectGraphQLOperation(schema, {
-              id, name, database: draft.database, spec: buildGraphQLSpec(spec, available),
-            }, database.maxPageSize));
+            const available = tableChoices?.[spec.kind]?.find(
+              ({ rootField }) => rootField === spec.rootField,
+            );
+            if (!database || !schema || !available)
+              throw new Error('The published operation is unavailable.');
+            next.set(
+              id,
+              buildProjectGraphQLOperation(
+                schema,
+                {
+                  id,
+                  name,
+                  database: draft.database,
+                  spec: buildGraphQLSpec(spec, available),
+                },
+                database.maxPageSize,
+              ),
+            );
           }
           allNames.add(name.toLowerCase());
         } catch (reason) {
           setSelectedOperationId(id);
-          throw new Error(`${KINDS[spec.kind]} · ${name || 'Unnamed operation'}: ${restGoErrorMessage(reason)}`, { cause: reason });
+          throw new Error(
+            `${KINDS[spec.kind]} · ${name || 'Unnamed operation'}: ${restGoErrorMessage(reason)}`,
+            { cause: reason },
+          );
         }
       }
       const removed = previous.filter(({ id }) => !next.has(id));
-      if (removed.length && !window.confirm(`Remove ${removed.map(({ name }) => name).join(', ')} from this project?`)) return;
+      if (
+        removed.length &&
+        !window.confirm(`Remove ${removed.map(({ name }) => name).join(', ')} from this project?`)
+      )
+        return;
       const saved = [...next.values()];
       await onSave([
-        ...operations.flatMap((entry) => previousById.has(entry.id) ? (next.get(entry.id) ?? []) : entry),
+        ...operations.flatMap((entry) =>
+          previousById.has(entry.id) ? (next.get(entry.id) ?? []) : entry,
+        ),
         ...saved.filter(({ id }) => !previousById.has(id)),
       ]);
-      selectDraft(saved.length ? editGraphQLTable({ ...draft, operations: saved }) : null, true, selectedOperation?.id);
+      selectDraft(
+        saved.length ? editGraphQLTable({ ...draft, operations: saved }) : null,
+        true,
+        selectedOperation?.id,
+      );
       setNotice('Table actions applied. Save the project to keep the changes.');
     } catch (reason) {
       setError(restGoErrorMessage(reason));
@@ -232,73 +324,176 @@ export function RestGoGraphQLWorkspace({
   };
 
   return (
-    <section hidden={!active} className="wr-restgo-endpoints-layout wr-restgo-graphql-workspace" aria-label="GraphQL operations">
+    <section
+      hidden={!active}
+      className="wr-restgo-endpoints-layout wr-restgo-graphql-workspace"
+      aria-label="GraphQL operations"
+    >
       <aside className="wr-restgo-endpoint-list">
         <div className="wr-restgo-endpoint-list-toolbar">
           <strong>Tables</strong>
-          <button type="button" aria-label="New GraphQL table" className="wr-restgo-button wr-restgo-new-endpoint" disabled={!onSave || !databases.length || catalogLoading || dirty || saving} onClick={create}>
+          <button
+            type="button"
+            aria-label="New GraphQL table"
+            className="wr-restgo-button wr-restgo-new-endpoint"
+            disabled={!onSave || !databases.length || catalogLoading || dirty || saving}
+            onClick={create}
+          >
             <Icon name="add" />
             New
           </button>
         </div>
         <label className="wr-restgo-search">
           <Icon name="search" />
-          <input type="search" aria-label="Search GraphQL tables" placeholder="Search tables or actions" value={search} onChange={(event) => setSearch(event.currentTarget.value)} />
+          <input
+            type="search"
+            aria-label="Search GraphQL tables"
+            placeholder="Search tables or actions"
+            value={search}
+            onChange={(event) => setSearch(event.currentTarget.value)}
+          />
         </label>
         {visibleTables.map((entry) => (
-          <button type="button" className="wr-restgo-endpoint-list-item" key={`${entry.database}:${entry.table}`} aria-pressed={draft?.database === entry.database && draft.table === entry.table} disabled={dirty || saving} onClick={() => selectDraft(editGraphQLTable(entry), true)}>
-            <span><strong>{entry.table}</strong><small>{entry.database}</small></span>
-            <span className="wr-restgo-list-methods">{GRAPHQL_ACTIONS.filter((kind) => entry.operations.some(({ spec }) => spec.kind === kind)).map((kind) => <small key={kind}>{KINDS[kind]}</small>)}</span>
+          <button
+            type="button"
+            className="wr-restgo-endpoint-list-item"
+            key={`${entry.database}:${entry.table}`}
+            aria-pressed={draft?.database === entry.database && draft.table === entry.table}
+            disabled={dirty || saving}
+            onClick={() => selectDraft(editGraphQLTable(entry), true)}
+          >
+            <span>
+              <strong>{entry.table}</strong>
+              <small>{entry.database}</small>
+            </span>
+            <span className="wr-restgo-list-methods">
+              {GRAPHQL_ACTIONS.filter((kind) =>
+                entry.operations.some(({ spec }) => spec.kind === kind),
+              ).map((kind) => (
+                <small key={kind}>{KINDS[kind]}</small>
+              ))}
+            </span>
           </button>
         ))}
-        {search && !visibleTables.length && <p className="wr-restgo-list-note">No matching tables.</p>}
+        {search && !visibleTables.length && (
+          <p className="wr-restgo-list-note">No matching tables.</p>
+        )}
       </aside>
       <div className="wr-restgo-endpoint-content">
-        {catalogLoading && <p className="wr-restgo-graphql-message" role="status">Loading published databases…</p>}
-        {catalogError && <p className="wr-restgo-graphql-message wr-restgo-graphql-error" role="alert">{catalogError}</p>}
-        {notice && <p className="wr-restgo-graphql-message" role="status">{notice}</p>}
+        {catalogLoading && (
+          <p className="wr-restgo-graphql-message" role="status">
+            Loading published databases…
+          </p>
+        )}
+        {catalogError && (
+          <p className="wr-restgo-graphql-message wr-restgo-graphql-error" role="alert">
+            {catalogError}
+          </p>
+        )}
+        {notice && (
+          <p className="wr-restgo-graphql-message" role="status">
+            {notice}
+          </p>
+        )}
         {!draft ? (
           <div className="wr-restgo-empty-state">
             <Icon name="waypoints" />
             <h2>{operations.length ? 'Choose a table' : 'Configure a GraphQL table'}</h2>
-            {!catalogLoading && !catalogError && !databases.length && <p>No GraphQL databases are published in this RestGO instance.</p>}
-            {databases.length > 0 && <p>Choose a published table and enable the actions your application needs.</p>}
-            {error && <p className="wr-restgo-graphql-error" role="alert">{error}</p>}
+            {!catalogLoading && !catalogError && !databases.length && (
+              <p>No GraphQL databases are published in this RestGO instance.</p>
+            )}
+            {databases.length > 0 && (
+              <p>Choose a published table and enable the actions your application needs.</p>
+            )}
+            {error && (
+              <p className="wr-restgo-graphql-error" role="alert">
+                {error}
+              </p>
+            )}
           </div>
         ) : (
-          <form className="wr-restgo-graphql-editor" noValidate onSubmit={(event) => { void save(event); }}>
+          <form
+            className="wr-restgo-graphql-editor"
+            noValidate
+            onSubmit={(event) => {
+              void save(event);
+            }}
+          >
             <fieldset disabled={saving} className="wr-restgo-graphql-body">
               <section className="wr-restgo-graphql-table">
                 <div className="wr-restgo-graphql-section-heading">
                   <h2>{baseline ? 'Table actions' : 'New table'}</h2>
-                  {database && <code className="wr-restgo-graphql-endpoint">{database.endpoint}</code>}
+                  {database && (
+                    <code className="wr-restgo-graphql-endpoint">{database.endpoint}</code>
+                  )}
                 </div>
                 <div className="wr-restgo-graphql-operation-fields">
                   <label>
                     Published database
-                    <select aria-label="GraphQL database" disabled={baseline !== null} value={draft.database} onChange={(event) => {
-                      const next = databases.find((entry) => entry.slug === event.currentTarget.value);
-                      if (next) selectDraft({ database: next.slug, table: '', actions: {} }, false);
-                    }}>
-                      {!database && <option value={draft.database}>{draft.database} (unavailable)</option>}
-                      {databases.map((entry) => <option key={entry.id} value={entry.slug}>{entry.name} ({entry.slug})</option>)}
+                    <select
+                      aria-label="GraphQL database"
+                      disabled={baseline !== null}
+                      value={draft.database}
+                      onChange={(event) => {
+                        const next = databases.find(
+                          (entry) => entry.slug === event.currentTarget.value,
+                        );
+                        if (next)
+                          selectDraft({ database: next.slug, table: '', actions: {} }, false);
+                      }}
+                    >
+                      {!database && (
+                        <option value={draft.database}>{draft.database} (unavailable)</option>
+                      )}
+                      {databases.map((entry) => (
+                        <option key={entry.id} value={entry.slug}>
+                          {entry.name} ({entry.slug})
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
                     Table
-                    <select aria-label="GraphQL table" required disabled={baseline !== null || !tables} value={draft.table} onChange={(event) => selectDraft({ ...draft, table: event.currentTarget.value, actions: {} }, false)}>
+                    <select
+                      aria-label="GraphQL table"
+                      required
+                      disabled={baseline !== null || !tables}
+                      value={draft.table}
+                      onChange={(event) =>
+                        selectDraft(
+                          { ...draft, table: event.currentTarget.value, actions: {} },
+                          false,
+                        )
+                      }
+                    >
                       <option value="">Choose a published table</option>
-                      {draft.table && !availableTables.includes(draft.table) && <option value={draft.table}>{draft.table}</option>}
-                      {availableTables.map((table) => <option key={table} value={table}>{table}</option>)}
+                      {draft.table && !availableTables.includes(draft.table) && (
+                        <option value={draft.table}>{draft.table}</option>
+                      )}
+                      {availableTables.map((table) => (
+                        <option key={table} value={table}>
+                          {table}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
                 {!database && !catalogLoading && <p role="status">This database is unavailable.</p>}
                 {database && !currentSchemaState && <p role="status">Loading published schema…</p>}
-                {currentSchemaState?.error && <p role="alert" className="wr-restgo-graphql-error">{currentSchemaState.error}</p>}
-                {schemaError && <p role="alert" className="wr-restgo-graphql-error">{schemaError}</p>}
+                {currentSchemaState?.error && (
+                  <p role="alert" className="wr-restgo-graphql-error">
+                    {currentSchemaState.error}
+                  </p>
+                )}
+                {schemaError && (
+                  <p role="alert" className="wr-restgo-graphql-error">
+                    {schemaError}
+                  </p>
+                )}
                 {tables?.size === 0 && <p role="status">The published schema has no tables.</p>}
-                {!baseline && !!tables?.size && availableTables.length === 0 && <p role="status">All published tables in this database are already configured.</p>}
+                {!baseline && !!tables?.size && availableTables.length === 0 && (
+                  <p role="status">All published tables in this database are already configured.</p>
+                )}
                 {draft.table && (
                   <fieldset className="wr-restgo-graphql-action-picker">
                     <legend>Enabled actions</legend>
@@ -314,7 +509,10 @@ export function RestGoGraphQLWorkspace({
                             disabled={!checked && !disabledActions[kind] && unavailable}
                             onChange={(event) => changeAction(kind, event.currentTarget.checked)}
                           />
-                          <span>{KINDS[kind]}{unavailable && tables && <small>Unavailable</small>}</span>
+                          <span>
+                            {KINDS[kind]}
+                            {unavailable && tables && <small>Unavailable</small>}
+                          </span>
                         </label>
                       );
                     })}
@@ -326,10 +524,21 @@ export function RestGoGraphQLWorkspace({
                   <div className="wr-restgo-graphql-section-heading">
                     <h2>{KINDS[selectedOperation.spec.kind]} settings</h2>
                     {enabled.length > 1 && (
-                      <div className="wr-restgo-graphql-action-settings" role="group" aria-label="Configure enabled actions">
+                      <div
+                        className="wr-restgo-graphql-action-settings"
+                        role="group"
+                        aria-label="Configure enabled actions"
+                      >
                         {enabled.map(({ id, name, spec }) => (
-                          <button key={id} type="button" className="wr-restgo-button" aria-pressed={id === selectedOperation.id} onClick={() => setSelectedOperationId(id)}>
-                            {KINDS[spec.kind]}{(draft.actions[spec.kind]?.length ?? 0) > 1 && ` · ${name}`}
+                          <button
+                            key={id}
+                            type="button"
+                            className="wr-restgo-button"
+                            aria-pressed={id === selectedOperation.id}
+                            onClick={() => setSelectedOperationId(id)}
+                          >
+                            {KINDS[spec.kind]}
+                            {(draft.actions[spec.kind]?.length ?? 0) > 1 && ` · ${name}`}
                           </button>
                         ))}
                       </div>
@@ -343,30 +552,55 @@ export function RestGoGraphQLWorkspace({
                         required
                         disabled={!choice}
                         value={selectedOperation.name}
-                        onChange={(event) => updateOperation({ ...selectedOperation, name: event.currentTarget.value })}
+                        onChange={(event) =>
+                          updateOperation({ ...selectedOperation, name: event.currentTarget.value })
+                        }
                       />
                     </label>
                     {!!selectedChoices?.length && (!choice || selectedChoices.length > 1) && (
                       <label>
                         Published operation
-                        <select value={selectedOperation.spec.rootField} onChange={(event) => {
-                          const next = selectedChoices.find(({ rootField }) => rootField === event.currentTarget.value);
-                          if (next) updateOperation({ ...selectedOperation, spec: newGraphQLSpec(selectedOperation.spec.kind, selectedOperation.spec.pageSize, next) });
-                        }}>
-                          {!choice && <option value={selectedOperation.spec.rootField}>{selectedOperation.spec.rootField} (unavailable)</option>}
-                          {selectedChoices.map(({ rootField }) => <option key={rootField}>{rootField}</option>)}
+                        <select
+                          value={selectedOperation.spec.rootField}
+                          onChange={(event) => {
+                            const next = selectedChoices.find(
+                              ({ rootField }) => rootField === event.currentTarget.value,
+                            );
+                            if (next)
+                              updateOperation({
+                                ...selectedOperation,
+                                spec: newGraphQLSpec(
+                                  selectedOperation.spec.kind,
+                                  selectedOperation.spec.pageSize,
+                                  next,
+                                ),
+                              });
+                          }}
+                        >
+                          {!choice && (
+                            <option value={selectedOperation.spec.rootField}>
+                              {selectedOperation.spec.rootField} (unavailable)
+                            </option>
+                          )}
+                          {selectedChoices.map(({ rootField }) => (
+                            <option key={rootField}>{rootField}</option>
+                          ))}
                         </select>
                       </label>
                     )}
                   </div>
-                  {!choice && tables && <p role="status">The saved operation is unavailable in the published schema.</p>}
+                  {!choice && tables && (
+                    <p role="status">The saved operation is unavailable in the published schema.</p>
+                  )}
                   {(draft.actions[selectedOperation.spec.kind]?.length ?? 0) > 1 && (
                     <button
                       type="button"
                       className="wr-restgo-button is-danger wr-restgo-graphql-remove-variant"
                       onClick={() => {
                         const { kind } = selectedOperation.spec;
-                        const remaining = draft.actions[kind]?.filter(({ id }) => id !== selectedOperation.id) ?? [];
+                        const remaining =
+                          draft.actions[kind]?.filter(({ id }) => id !== selectedOperation.id) ??
+                          [];
                         setDraft({ ...draft, actions: { ...draft.actions, [kind]: remaining } });
                       }}
                     >
@@ -385,10 +619,23 @@ export function RestGoGraphQLWorkspace({
                 </section>
               )}
             </fieldset>
-            {error && <p className="wr-restgo-graphql-message wr-restgo-graphql-error" role="alert">{error}</p>}
+            {error && (
+              <p className="wr-restgo-graphql-message wr-restgo-graphql-error" role="alert">
+                {error}
+              </p>
+            )}
             <div className="wr-restgo-graphql-editor-actions">
-              <button type="button" className="wr-restgo-button" disabled={saving} onClick={() => dirty ? selectDraft(baseline, true) : selectDraft(null, false)}>{dirty ? 'Discard changes' : 'Close'}</button>
-              <button type="submit" className="wr-restgo-button is-primary" disabled={!canSave}><Icon name="save" /> Save actions</button>
+              <button
+                type="button"
+                className="wr-restgo-button"
+                disabled={saving}
+                onClick={() => (dirty ? selectDraft(baseline, true) : selectDraft(null, false))}
+              >
+                {dirty ? 'Discard changes' : 'Close'}
+              </button>
+              <button type="submit" className="wr-restgo-button is-primary" disabled={!canSave}>
+                <Icon name="save" /> Save actions
+              </button>
             </div>
           </form>
         )}
@@ -404,8 +651,15 @@ interface OperationFieldsProps {
   readonly onChange: (spec: OperationDraft['spec']) => void;
 }
 
-function GraphQLOperationFields({ draft: { spec }, database, choice, onChange }: OperationFieldsProps): ReactElement {
-  const availableOrder = choice.orderBy.filter((available) => !spec.orderBy.some((order) => order.field === available.field));
+function GraphQLOperationFields({
+  draft: { spec },
+  database,
+  choice,
+  onChange,
+}: OperationFieldsProps): ReactElement {
+  const availableOrder = choice.orderBy.filter(
+    (available) => !spec.orderBy.some((order) => order.field === available.field),
+  );
   const firstOrder = availableOrder[0];
   const firstDirection = firstOrder?.directions[0];
   const visibleFields = new Set(choice.selection.map((field) => field.path));
@@ -415,13 +669,19 @@ function GraphQLOperationFields({ draft: { spec }, database, choice, onChange }:
       {choice.inputs.length > 0 && (
         <section className="wr-restgo-graphql-setting">
           <h3>Values to write</h3>
-          <RestGoGraphQLMutationInputs operation={choice} inputs={spec.inputs} onChange={(inputs) => onChange({ ...spec, inputs })} />
+          <RestGoGraphQLMutationInputs
+            operation={choice}
+            inputs={spec.inputs}
+            onChange={(inputs) => onChange({ ...spec, inputs })}
+          />
         </section>
       )}
       {(choice.filters.length > 0 || spec.conditions.items.length > 0) && (
         <section className="wr-restgo-graphql-setting">
           <h3>Conditions</h3>
-          {(spec.kind === 'update' || spec.kind === 'delete') && <p>Set a condition that selects the record to change.</p>}
+          {(spec.kind === 'update' || spec.kind === 'delete') && (
+            <p>Set a condition that selects the record to change.</p>
+          )}
           <RestGoGraphQLConditionGroup
             group={spec.conditions}
             operation={choice}
@@ -434,14 +694,31 @@ function GraphQLOperationFields({ draft: { spec }, database, choice, onChange }:
         <section className="wr-restgo-graphql-setting">
           <h3>Return fields</h3>
           <div className="wr-restgo-graphql-selection">
-            {[...choice.selection.map((field) => ({ path: field.path, label: field.label, type: field.type })), ...missingFields.map((path) => ({ path, label: path, type: 'Unavailable' }))].map((field) => (
+            {[
+              ...choice.selection.map((field) => ({
+                path: field.path,
+                label: field.label,
+                type: field.type,
+              })),
+              ...missingFields.map((path) => ({ path, label: path, type: 'Unavailable' })),
+            ].map((field) => (
               <label key={field.path} className="wr-restgo-graphql-check" title={field.path}>
                 <input
                   type="checkbox"
                   checked={spec.selectionPaths.includes(field.path)}
-                  onChange={(event) => onChange({ ...spec, selectionPaths: event.currentTarget.checked ? [...spec.selectionPaths, field.path] : spec.selectionPaths.filter((path) => path !== field.path) })}
+                  onChange={(event) =>
+                    onChange({
+                      ...spec,
+                      selectionPaths: event.currentTarget.checked
+                        ? [...spec.selectionPaths, field.path]
+                        : spec.selectionPaths.filter((path) => path !== field.path),
+                    })
+                  }
                 />
-                <span>{field.label}<small>{field.type}</small></span>
+                <span>
+                  {field.label}
+                  <small>{field.type}</small>
+                </span>
               </label>
             ))}
           </div>
@@ -456,35 +733,96 @@ function GraphQLOperationFields({ draft: { spec }, database, choice, onChange }:
               <div key={order.field} className="wr-restgo-graphql-row-fields">
                 <label>
                   Sort field
-                  <select value={order.field} onChange={(event) => {
-                    const next = availableOrder.find((item) => item.field === event.currentTarget.value);
-                    const direction = next?.directions[0];
-                    if (next && direction) onChange({ ...spec, orderBy: spec.orderBy.map((entry, at) => at === index ? { field: next.field, direction } : entry) });
-                  }}>
-                    <option value={order.field}>{order.field}{field ? '' : ' (unavailable)'}</option>
-                    {availableOrder.map((item) => <option key={item.field}>{item.field}</option>)}
+                  <select
+                    value={order.field}
+                    onChange={(event) => {
+                      const next = availableOrder.find(
+                        (item) => item.field === event.currentTarget.value,
+                      );
+                      const direction = next?.directions[0];
+                      if (next && direction)
+                        onChange({
+                          ...spec,
+                          orderBy: spec.orderBy.map((entry, at) =>
+                            at === index ? { field: next.field, direction } : entry,
+                          ),
+                        });
+                    }}
+                  >
+                    <option value={order.field}>
+                      {order.field}
+                      {field ? '' : ' (unavailable)'}
+                    </option>
+                    {availableOrder.map((item) => (
+                      <option key={item.field}>{item.field}</option>
+                    ))}
                   </select>
                 </label>
                 <label>
                   Direction
-                  <select value={order.direction} onChange={(event) => {
-                    const direction = event.currentTarget.value;
-                    onChange({ ...spec, orderBy: spec.orderBy.map((entry, at) => at === index ? { ...entry, direction } : entry) });
-                  }}>
-                    {!field?.directions.includes(order.direction) && <option value={order.direction}>{order.direction} (unavailable)</option>}
-                    {field?.directions.map((direction) => <option key={direction}>{direction}</option>)}
+                  <select
+                    value={order.direction}
+                    onChange={(event) => {
+                      const direction = event.currentTarget.value;
+                      onChange({
+                        ...spec,
+                        orderBy: spec.orderBy.map((entry, at) =>
+                          at === index ? { ...entry, direction } : entry,
+                        ),
+                      });
+                    }}
+                  >
+                    {!field?.directions.includes(order.direction) && (
+                      <option value={order.direction}>{order.direction} (unavailable)</option>
+                    )}
+                    {field?.directions.map((direction) => (
+                      <option key={direction}>{direction}</option>
+                    ))}
                   </select>
                 </label>
-                <RemoveField label="Remove sort field" onClick={() => onChange({ ...spec, orderBy: spec.orderBy.filter((_, at) => at !== index) })} />
+                <RemoveField
+                  label="Remove sort field"
+                  onClick={() =>
+                    onChange({ ...spec, orderBy: spec.orderBy.filter((_, at) => at !== index) })
+                  }
+                />
               </div>
             );
           })}
           <div className="wr-restgo-graphql-pagination">
-            {choice.orderBy.length > 0 && <button type="button" className="wr-restgo-button" disabled={!firstOrder || !firstDirection} onClick={() => firstOrder && firstDirection && onChange({ ...spec, orderBy: [...spec.orderBy, { field: firstOrder.field, direction: firstDirection }] })}><Icon name="add" /> Add sort field</button>}
+            {choice.orderBy.length > 0 && (
+              <button
+                type="button"
+                className="wr-restgo-button"
+                disabled={!firstOrder || !firstDirection}
+                onClick={() =>
+                  firstOrder &&
+                  firstDirection &&
+                  onChange({
+                    ...spec,
+                    orderBy: [
+                      ...spec.orderBy,
+                      { field: firstOrder.field, direction: firstDirection },
+                    ],
+                  })
+                }
+              >
+                <Icon name="add" /> Add sort field
+              </button>
+            )}
             {choice.pagination && (
               <label className="wr-restgo-graphql-page-size">
                 <span>Records per page</span>
-                <input type="number" required min={1} max={database.maxPageSize} value={spec.pageSize || ''} onChange={(event) => onChange({ ...spec, pageSize: Number(event.currentTarget.value) })} />
+                <input
+                  type="number"
+                  required
+                  min={1}
+                  max={database.maxPageSize}
+                  value={spec.pageSize || ''}
+                  onChange={(event) =>
+                    onChange({ ...spec, pageSize: Number(event.currentTarget.value) })
+                  }
+                />
                 <small>Maximum {database.maxPageSize}</small>
               </label>
             )}

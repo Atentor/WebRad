@@ -18,7 +18,9 @@ export function normalizeWebComboBoxConfiguration(value: unknown): WebComboBoxCo
     apiClientId: typeof source.apiClientId === 'string' ? source.apiClientId : null,
     operationId: typeof source.operationId === 'string' ? source.operationId : null,
     listPath: typeof source.listPath === 'string' ? source.listPath : '',
-    ...(typeof source.graphqlClientId === 'string' ? { graphqlClientId: source.graphqlClientId } : {}),
+    ...(typeof source.graphqlClientId === 'string'
+      ? { graphqlClientId: source.graphqlClientId }
+      : {}),
     displayField: typeof source.displayField === 'string' ? source.displayField : '',
     keyField: typeof source.keyField === 'string' ? source.keyField : '',
   };

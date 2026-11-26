@@ -11,11 +11,8 @@ import {
 } from '@webrad/project-model';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  ApiClientOperationOptions,
-  apiEndpointOption,
-  graphqlQueryOption,
-} from './ApiClientOperationOptions';
+import { ApiClientOperationOptions } from './ApiClientOperationOptions';
+import { apiEndpointOption, graphqlQueryOption } from './api-client-operation-options';
 
 interface ComboBoxConfigurationDialogProps {
   readonly component: ComponentNode;
@@ -184,7 +181,9 @@ export function ComboBoxConfigurationDialog({
                     return group.length === 0 ? null : (
                       <optgroup key={type} label={label}>
                         {group.map((candidate) => (
-                          <option key={candidate.id} value={candidate.id}>{candidate.name}</option>
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.name}
+                          </option>
                         ))}
                       </optgroup>
                     );
@@ -195,7 +194,7 @@ export function ComboBoxConfigurationDialog({
                 <span>Operation</span>
                 <select
                   aria-label="ComboBox operation"
-                    disabled={client === undefined}
+                  disabled={client === undefined}
                   value={
                     graphQL === undefined
                       ? apiEndpointOption(draft?.operationId ?? null)

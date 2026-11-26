@@ -189,6 +189,10 @@ export function restGoSessionControls(): readonly DemoNode[] {
           'SessionLifecycleHint',
           'RestGO restores persisted credentials and refreshes expiring sessions automatically according to your Connection settings. These buttons demonstrate explicit validation and renewal. Closing Preview is separate from signing out.',
         ),
+        paragraph(
+          'GraphQLClientHint',
+          'To try the GraphQL Client, save an operation in RestGo Integration, select it in DemoGraphQLClient and run it as a signed-in user.',
+        ),
       ]),
       row('SessionNavigation', [
         button('SessionLoginButton', 'Registration / sign in', 'OpenRestGoAccount', 'user'),

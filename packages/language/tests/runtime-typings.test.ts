@@ -19,43 +19,6 @@ const compilerOptions: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2022,
 };
 
-function runtimeModuleExports(typings: string): readonly string[] {
-  const source = ts.createSourceFile(
-    'webrad-runtime.d.ts',
-    typings,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
-  const runtimeModule = source.statements.find(
-    (statement): statement is ts.ModuleDeclaration =>
-      ts.isModuleDeclaration(statement) &&
-      ts.isStringLiteral(statement.name) &&
-      statement.name.text === '@webrad/runtime',
-  );
-  const moduleBody = runtimeModule?.body;
-  if (moduleBody === undefined || !ts.isModuleBlock(moduleBody)) return [];
-
-  const names = new Set<string>();
-  for (const statement of moduleBody.statements) {
-    if (
-      ts.isClassDeclaration(statement) ||
-      ts.isFunctionDeclaration(statement) ||
-      ts.isInterfaceDeclaration(statement) ||
-      ts.isTypeAliasDeclaration(statement)
-    ) {
-      if (statement.name !== undefined) names.add(statement.name.text);
-      continue;
-    }
-    if (ts.isVariableStatement(statement)) {
-      for (const declaration of statement.declarationList.declarations) {
-        if (ts.isIdentifier(declaration.name)) names.add(declaration.name.text);
-      }
-    }
-  }
-  return [...names].sort();
-}
-
 function publicRuntimeExports(): readonly string[] {
   const runtimeIndex = fileURLToPath(new URL('../../runtime/src/index.ts', import.meta.url));
   const program = ts.createProgram([runtimeIndex], compilerOptions);
@@ -310,10 +273,21 @@ logout.detail.user./*@logoutUser*/;
   });
 
   it('stays in parity with every public runtime export', () => {
-    const typingsExports = runtimeModuleExports(generateRuntimeTypings());
-    const runtimeExports = publicRuntimeExports();
-    expect(typingsExports).toEqual(runtimeExports);
-    expect(runtimeExports).not.toContain('WebForm');
+    const { service } = createLanguageService('');
+    try {
+      const checker = service.getProgram()!.getTypeChecker();
+      const runtime = checker.getAmbientModules().find(({ name }) => name === '"@webrad/runtime"');
+      expect(runtime).toBeDefined();
+      const typingsExports = checker
+        .getExportsOfModule(runtime!)
+        .map(({ name }) => name)
+        .sort();
+      const runtimeExports = publicRuntimeExports();
+      expect(typingsExports).toEqual(runtimeExports);
+      expect(runtimeExports).not.toContain('WebForm');
+    } finally {
+      service.dispose();
+    }
   });
 
   it('offers typed readonly CurrentUser members on the shared and standalone clients', () => {
@@ -578,6 +552,7 @@ void source; void unsupportedBody; void unsupportedConnection;
   it('offers component, page, API client, and collection completions', () => {
     const marked = extractMarkers(`import {
   WebApiClient,
+  WebGraphQLClient,
   WebButton,
   WebCheckBox,
   WebToggle,
@@ -641,6 +616,7 @@ class EditorPage extends WebPage {
     repeatingGroup: WebRepeatingGroup,
     popup: WebPopup,
     api: WebApiClient,
+    graphql: WebGraphQLClient,
     reusableInstance: WebReusableElementInstance, reportBuilder: WebReportBuilder,
   ): void {
     reportBuilder./*@reportBuilder*/Generate;
@@ -674,6 +650,7 @@ panel./*@panel*/caption;
     repeatingGroup./*@repeatingGroup*/rows;
     popup./*@popup*/modal;
     api./*@api*/request;
+    graphql./*@graphql*/operation;
     reusableInstance./*@reusableInstance*/pageName;
     this./*@page*/show;
   }
@@ -806,6 +783,16 @@ panel./*@panel*/caption;
         'request',
       ]),
     );
+    expect(completions('graphql')).toEqual(
+      expect.arrayContaining([
+        'authenticated',
+        'getOperation',
+        'id',
+        'name',
+        'operation',
+        'operations',
+      ]),
+    );
     expect(completions('page')).toEqual(
       expect.arrayContaining([
         ...commonVisualProperties,
@@ -827,6 +814,7 @@ panel./*@panel*/caption;
       WebMenu: 'menu',
       WebLogin: 'login',
       WebApiClient: 'api',
+      WebGraphQLClient: 'graphql',
       WebButton: 'button',
       WebCheckBox: 'checkBox',
       WebComboBox: 'combo',
@@ -864,6 +852,7 @@ panel./*@panel*/caption;
             return (
               property.type !== 'designer-action' &&
               property.type !== 'menu-definition' &&
+              property.type !== 'graphql-client-config' &&
               (source === 'props' || source === 'node' || source === 'bounds')
             );
           })

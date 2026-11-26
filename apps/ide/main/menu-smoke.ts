@@ -630,9 +630,7 @@ async function runMenuSmokeWorkflow(
     !('scrolled' in canvasOverflow) ||
     canvasOverflow.scrolled !== true
   ) {
-    throw new Error(
-      'Tablet canvas horizontal scrolling failed. ' + JSON.stringify(canvasOverflow),
-    );
+    throw new Error('Tablet canvas horizontal scrolling failed. ' + JSON.stringify(canvasOverflow));
   }
   options.log('renderer Tablet canvas horizontal scrolling passed: overflowing component');
   await click('.wr-viewport-presets button[aria-label="Mobile"]');

@@ -97,7 +97,10 @@ export class RestGoTransport {
         const prepared = await this.prepareSession();
         if (prepared.error) return prepared;
         if (options.requireStableSession && sessionVersion !== this.sessionVersion()) {
-          return failure('The RestGo session changed before the request.', 'AUTH_OPERATION_CANCELLED');
+          return failure(
+            'The RestGo session changed before the request.',
+            'AUTH_OPERATION_CANCELLED',
+          );
         }
         if (options.signal?.aborted) return failure('RestGo request was aborted.', 'ABORTED');
       }

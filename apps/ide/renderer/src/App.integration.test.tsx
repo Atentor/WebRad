@@ -2045,6 +2045,7 @@ describe('App MVP integration', () => {
     await user.click(screen.getByRole('button', { name: 'Configure Data Grid' }));
     const dialog = await screen.findByRole('dialog', { name: 'Configure Data Grid' });
     const editor = within(dialog);
+    await user.click(editor.getByRole('tab', { name: 'Appearance' }));
     await user.type(editor.getByLabelText('Data Grid empty-state message'), ' draft only');
     await user.click(editor.getByRole('checkbox', { name: 'Show Data Grid header' }));
     editor.getByRole('button', { name: 'Cancel' }).focus();
@@ -2079,6 +2080,7 @@ describe('App MVP integration', () => {
     expect(document.querySelector('.wr-ide-modal-host')?.hasAttribute('inert')).toBe(false);
     await user.click(screen.getByRole('button', { name: 'Configure Data Grid' }));
     const reopened = within(await screen.findByRole('dialog', { name: 'Configure Data Grid' }));
+    await user.click(reopened.getByRole('tab', { name: 'Appearance' }));
     expect(reopened.getByLabelText('Data Grid empty-state message')).toHaveProperty(
       'value',
       originalConfiguration.emptyMessage,

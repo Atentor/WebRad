@@ -181,6 +181,7 @@ function testPage(): PageModel {
           'stable-panel-main',
           'popup-dialog',
           'api-client',
+          'graphql-client',
           'stable-timer',
           'stable-payments',
           'stable-file-upload',

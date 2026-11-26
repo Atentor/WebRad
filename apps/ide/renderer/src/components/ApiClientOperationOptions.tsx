@@ -1,13 +1,7 @@
 import type { ApiClientOperation, ProjectGraphQLOperation } from '@webrad/project-model';
 import type { ReactElement } from 'react';
 
-export function apiEndpointOption(id: string | null): string {
-  return id?.includes(':') ? `endpoint:${id}` : (id ?? '');
-}
-
-export function graphqlQueryOption(id: string | null): string {
-  return id === null ? '' : `graphql:${id}`;
-}
+import { apiEndpointOption, graphqlQueryOption } from './api-client-operation-options';
 
 interface ApiClientOperationOptionsProps {
   readonly endpoints: readonly ApiClientOperation[];
