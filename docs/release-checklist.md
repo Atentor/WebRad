@@ -746,7 +746,9 @@ Both development and packaged Windows x64 smokes passed this interaction on
 2026-11-14.
 
 Both runners require `renderer RestGO connection layout passed:`. The existing
-RestGO settings workflow edits the always-visible API defaults and User session
+settings smoke also expects confirmation after one application of the instance
+URL and API token, then verifies persistence after Save. The workflow edits the
+always-visible API defaults and User session
 fields, then checks the separate project configuration and IDE-only
 administration/development cards, unboxed 24 px heading icons, readable controls
 and a single-column panel layout that fills the available content width without
@@ -759,11 +761,15 @@ out actions while retaining session, JWT and password-clearing evidence. Both
 runners also require `renderer RestGO administrative layout passed:`. After a
 real fixture admin connection, that workflow verifies the secure-remember
 message and resulting encrypted/session storage state, connected URL, catalog
-counts, available actions, horizontal and narrow layouts, and overflow before
-capturing presented frames of the connected administrative card at both sizes.
+counts, available actions, horizontal and narrow layouts, and overflow. It
+checks that the verification notice floats below the header without shifting
+the workspace and dismisses automatically. The connected administrative card
+is captured at both sizes.
 Both runners also require `renderer RestGO published APIs layout passed:`. The
-API Client fixture temporarily exposes three publications, then checks that
-their cards fill one column with available actions and no horizontal overflow at
+API Client fixture requires the first catalog request to verify a cold token
+before serving the other resources. The workflow refreshes the catalog, confirms
+the IDE stays connected, and checks that three temporary publication cards fill
+one column with available actions and no horizontal overflow at
 desktop and narrow sizes. It unpublishes and republishes a fixture API through the
 real controls, checks the status-specific action colors, icons and accessible
 names, verifies that no success banner appears for either transition, captures
@@ -791,16 +797,30 @@ RestGO before Save endpoint. The original server-save and imported-client
 synchronization assertions remain required. This updated flow has not been run.
 
 Both runners require `renderer RestGO GraphQL operation editor passed:`. The IDE
-opens GraphQL from RestGO, reads an authenticated fixture schema and creates a
-query by choosing a published table, a typed filter parameter and return fields.
-The flow saves the project, verifies the persisted operation, captures a
-presented editor frame and checks that authoring uses read-only RestGo requests.
-This flow has not been run.
+opens GraphQL from RestGO, reads an authenticated fixture schema and enables
+Query and Insert for one published table. The flow configures a typed query
+filter and return fields, checks that unpublished Delete is disabled, saves both
+actions together and verifies their persisted settings. The operator selector
+shows `=` and `<>`, and the saved filter retains `neq`. It reopens the single
+table entry and adds a draft OR group with a condition. At desktop and narrow
+widths it checks the continuous editor surface, responsive filter rows, matching
+30 px heights for fields, selectors and condition buttons, indentation of the
+group, inline pagination and absence of horizontal overflow.
+It captures both presented frames, removes the draft group and confirms the
+editor is clean. Authoring must use read-only RestGo requests.
+In the Designer, the Data Grid initially has no GraphQL queries for its client.
+The flow imports the saved query through the API Client dialog, verifies it is
+available in the Data Grid, binds it in the Data Grid and ComboBox, and reopens
+both bindings. The palette exposes API Client as the component for this workflow.
+This updated flow has not been run.
 
 Both runners require `renderer GraphQL Data Grid compiled runtime passed:`. The
-compiled browser fixture exercises Data Grid cursor navigation, a ComboBox with
-independent labels and keys, record drafts, undo and an explicit change save.
-This flow has not been run.
+compiled browser fixture uses the same API Client for Data Grid cursor
+navigation and a ComboBox with independent labels and keys. It prepares an
+imported query's typed parameter in one action and executes it in another.
+It checks the filtered result, then exercises record drafts, undo and an
+explicit change save.
+This updated flow has not been run.
 
 Both runners require `renderer Payments Inspector and Interact passed:` and
 `renderer Payments compiled runtime passed:`. The existing nonvisual Inspector

@@ -8,6 +8,7 @@ import {
   createDefaultApiClientConfiguration,
   createProject,
   DEFAULT_REST_GO_PROJECT_SETTINGS,
+  normalizeApiClientConfiguration,
 } from '@webrad/project-model';
 import { BrowserWindow } from 'electron';
 
@@ -15,6 +16,7 @@ import { publishPreviewHtml, revokePreview } from './preview-server';
 import { resizeSmokeViewport } from './smoke-viewport';
 import { capturePresentedSmokePage } from './smoke-capture';
 import type { RestGoAdminEndpoint } from '../shared/restgo-admin';
+import { loadProjectFiles } from './project-files';
 
 interface ApiClientDesignerSmokeOptions {
   readonly projectPath: string;
@@ -147,6 +149,7 @@ function graphQLSmokeSchema(): object {
   const object = (name: string) => ref('OBJECT', name);
   const input = (name: string) => ref('INPUT_OBJECT', name);
   const list = (type: object) => ref('LIST', null, type);
+  const nonNull = (type: object) => ref('NON_NULL', null, type);
   const field = (name: string, type: object, args: readonly object[] = []) => ({ name, type, args });
   const argument = (name: string, type: object) => ({ name, type, defaultValue: null });
   const objectType = (name: string, fields: readonly object[]) => ({
@@ -159,7 +162,7 @@ function graphQLSmokeSchema(): object {
     data: {
       __schema: {
         queryType: { name: 'Query' },
-        mutationType: null,
+        mutationType: { name: 'Mutation' },
         types: [
           scalar('Int'), scalar('String'), scalar('Boolean'), scalar('Cursor'),
           objectType('Query', [field('customersCollection', object('customersConnection'), [
@@ -167,6 +170,13 @@ function graphQLSmokeSchema(): object {
             argument('after', scalar('Cursor')),
             argument('filter', input('customersFilter')),
           ])]),
+          objectType('Mutation', [field('insertIntocustomersCollection', object('customersInsertResponse'), [
+            argument('objects', nonNull(list(nonNull(input('customersInsertInput'))))),
+          ])]),
+          objectType('customersInsertResponse', [
+            field('affectedCount', scalar('Int')), field('records', list(object('customers'))),
+          ]),
+          inputType('customersInsertInput', [argument('name', nonNull(scalar('String')))]),
           objectType('customersConnection', [
             field('edges', list(object('customersEdge'))),
             field('pageInfo', object('PageInfo')),
@@ -174,8 +184,12 @@ function graphQLSmokeSchema(): object {
           objectType('customersEdge', [field('node', object('customers'))]),
           objectType('customers', [field('id', scalar('Int')), field('name', scalar('String'))]),
           objectType('PageInfo', [field('hasNextPage', scalar('Boolean')), field('endCursor', scalar('Cursor'))]),
-          inputType('customersFilter', [argument('id', input('IntFilter'))]),
-          inputType('IntFilter', [argument('eq', scalar('Int'))]),
+          inputType('customersFilter', [
+            argument('id', input('IntFilter')),
+            argument('and', list(input('customersFilter'))),
+            argument('or', list(input('customersFilter'))),
+          ]),
+          inputType('IntFilter', [argument('eq', scalar('Int')), argument('neq', scalar('Int'))]),
         ],
       },
     },
@@ -189,24 +203,270 @@ async function exerciseRestGoGraphQL(
 ): Promise<void> {
   const workspace = '.wr-restgo-graphql-workspace';
   await click(window, '.wr-restgo-sidebar nav button:nth-child(4)');
-  await click(window, `${workspace} [aria-label="New GraphQL operation"]`);
+  await click(window, `${workspace} [aria-label="New GraphQL table"]`);
+  await setControl(window, '[aria-label="GraphQL table"]', 'customers');
+  await click(window, `${workspace} [aria-label="Enable Query"]`);
   await setControl(window, '[aria-label="GraphQL operation name"]', 'SmokeListCustomers');
-  await setControl(window, '[aria-label="GraphQL table"]', 'customersCollection');
   await clickText(window, 'Add condition', workspace);
+  const operator = `${workspace} .wr-restgo-graphql-filter-row select:has(option[value="neq"])`;
+  await ready(window, `document.querySelector(${JSON.stringify(operator)})?.selectedOptions[0]?.text === '='`);
+  await setControl(window, operator, 'neq');
   await setControl(window, `${workspace} .wr-restgo-graphql-parameters input:not([type])`, 'customerId');
-  await click(window, `${workspace} .wr-restgo-graphql-selection label[title="id"] input`);
   await click(window, `${workspace} .wr-restgo-graphql-selection label[title="name"] input`);
-  await clickText(window, 'Save operation', workspace);
-  await ready(window, `document.querySelector('${workspace} [role="status"]')?.textContent.includes('Operation applied') === true`);
+  await click(window, `${workspace} [aria-label="Enable Insert"]`);
+  await ready(window, `document.querySelector('${workspace} [aria-label="Enable Delete"]')?.disabled === true`);
+  await setControl(window, '[aria-label="GraphQL operation name"]', 'SmokeInsertCustomer');
+  await clickText(window, 'Query', `${workspace} .wr-restgo-graphql-action-settings`);
+  await clickText(window, 'Save actions', workspace);
+  await ready(window, `document.querySelector('${workspace} [role="status"]')?.textContent.includes('Table actions applied') === true`);
   await window.webContents.send('webrad:menu-command', 'file.save');
   await ready(window, `document.querySelector('[data-project-save-state="Saved"]') !== null`);
-  const source = await fs.readFile(projectPath, 'utf8');
-  if (!source.includes('SmokeListCustomers') || !source.includes('customerId') || !source.includes('customersCollection')) {
-    throw new Error('GraphQL operation metadata was not persisted to the smoke project.');
+  const { project } = await loadProjectFiles(projectPath);
+  const actions = project.settings.graphQLOperations?.filter(
+    ({ database, runtime }) => database === 'demo' && runtime.table === 'customers',
+  );
+  const query = actions?.find(({ name }) => name === 'SmokeListCustomers');
+  const insert = actions?.find(({ name }) => name === 'SmokeInsertCustomer');
+  if (actions?.length !== 2 || query?.spec.rootField !== 'customersCollection'
+    || !query.spec.conditions.items.some((item) =>
+      'parameter' in item && item.parameter === 'customerId' && item.operator === 'neq')
+    || !query.spec.selectionPaths.includes('id') || !query.spec.selectionPaths.includes('name')
+    || insert?.spec.rootField !== 'insertIntocustomersCollection'
+    || !insert.spec.inputs.some((item) => item.parameter === 'name' && item.required)) {
+    throw new Error('The table save did not persist the selected GraphQL actions and their settings.');
   }
-  const screenshot = await capturePresentedSmokePage(window, Date.now() + 5_000, 'RestGO GraphQL editor');
-  await fs.mkdir(path.dirname(evidencePath), { recursive: true });
-  await fs.writeFile(evidencePath, screenshot.toPNG());
+  await clickText(window, 'Close', workspace);
+  await click(window, `${workspace} .wr-restgo-endpoint-list-item`);
+  await ready(window, `document.querySelectorAll('${workspace} .wr-restgo-endpoint-list-item').length === 1
+    && document.querySelector('${workspace} [aria-label="Enable Query"]')?.checked === true
+    && document.querySelector('${workspace} [aria-label="Enable Insert"]')?.checked === true
+    && document.querySelector(${JSON.stringify(operator)})?.selectedOptions[0]?.text === '<>'`);
+  const nestedGroup = `${workspace} .wr-restgo-graphql-condition-group.is-nested`;
+  await clickText(window, 'Add condition group', workspace);
+  await clickText(window, 'Add condition', nestedGroup);
+  const [originalWidth, originalHeight] = window.getContentSize();
+  const [minimumWidth, minimumHeight] = window.getMinimumSize();
+  if (
+    originalWidth === undefined || originalHeight === undefined ||
+    minimumWidth === undefined || minimumHeight === undefined
+  ) {
+    throw new Error('RestGO GraphQL editor smoke could not read window dimensions.');
+  }
+  try {
+    window.setMinimumSize(1, 1);
+    for (const [width, height, screenshotPath] of [
+      [1440, 900, evidencePath],
+      [900, 800, path.join(path.dirname(evidencePath), `${path.basename(evidencePath, '.png')}-narrow.png`)],
+    ] as const) {
+      await resizeSmokeViewport(window, { width, height });
+      await ready(window, `(() => {
+    const content = document.querySelector('${workspace} .wr-restgo-endpoint-content');
+    const editor = content?.querySelector('.wr-restgo-graphql-editor');
+    const table = editor?.querySelector('.wr-restgo-graphql-table');
+    const settings = editor?.querySelector('.wr-restgo-graphql-settings');
+    const heading = settings?.querySelector('.wr-restgo-graphql-section-heading h2');
+    const tabs = settings?.querySelector('.wr-restgo-graphql-action-settings');
+    const rows = [...(settings?.querySelectorAll('.wr-restgo-graphql-setting h3') ?? [])];
+    const pageSize = settings?.querySelector('.wr-restgo-graphql-page-size');
+    const rule = settings?.querySelector('.wr-restgo-graphql-filter-row');
+    const field = rule?.querySelector('select');
+    const parameter = rule?.querySelector('.wr-restgo-graphql-parameters input');
+    const nested = settings?.querySelector('.wr-restgo-graphql-condition-group.is-nested');
+    const nestedField = nested?.querySelector('.wr-restgo-graphql-filter-row select');
+    if (!content || !editor || !table || !settings || !heading || !tabs || !pageSize || !rule || !field ||
+      !parameter || !nested || !nestedField) return false;
+    const controls = editor.querySelectorAll('input:not([type="checkbox"]), select, .wr-restgo-graphql-group-actions > button');
+    const uniformControlHeight = [...controls].every((control) =>
+      Math.abs(control.getBoundingClientRect().height - 30) < 0.5,
+    );
+    const title = heading.getBoundingClientRect();
+    const actions = tabs.getBoundingClientRect();
+    const filterTop = field.getBoundingClientRect().top;
+    const parameterTop = parameter.getBoundingClientRect().top;
+    const alignedFilter = ${width} === 1440
+      ? Math.abs(filterTop - parameterTop) < 1
+      : parameterTop >= field.getBoundingClientRect().bottom;
+    const continuousSurface = [table, settings, rule, nested].every(
+      (element) => getComputedStyle(element).backgroundColor === 'rgba(0, 0, 0, 0)',
+    );
+    const nestedStyle = getComputedStyle(nested);
+    const indentedGroup = nestedStyle.borderInlineStartWidth === '1px' &&
+      nestedStyle.borderBlockStartWidth === '0px' &&
+      nestedField.getBoundingClientRect().left > field.getBoundingClientRect().left;
+    const aligned = settings.clientWidth < 440 || (actions.left >= title.right && actions.top < title.bottom);
+    const alignedPagination = settings.clientWidth < 360 ||
+      pageSize.querySelector('input').getBoundingClientRect().left >= pageSize.querySelector('span').getBoundingClientRect().right;
+    return uniformControlHeight && continuousSurface && indentedGroup && alignedFilter && aligned && alignedPagination &&
+      nested.querySelector('.wr-restgo-graphql-match select')?.value === 'or' &&
+      rows.map(row => row.textContent).join(',') === 'Conditions,Return fields,Pagination' &&
+      content.scrollWidth <= content.clientWidth + 1 && settings.scrollWidth <= settings.clientWidth + 1;
+  })()`);
+      const screenshot = await capturePresentedSmokePage(window, Date.now() + 5_000, 'RestGO GraphQL editor');
+      await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
+      await fs.writeFile(screenshotPath, screenshot.toPNG());
+    }
+  } finally {
+    try {
+      await resizeSmokeViewport(window, { width: originalWidth, height: originalHeight });
+    } finally {
+      window.setMinimumSize(minimumWidth, minimumHeight);
+    }
+  }
+  await click(window, `${nestedGroup} [aria-label="Remove condition group"]`);
+  await ready(window, `document.querySelector('${nestedGroup}') === null &&
+    document.querySelector('${workspace} button[type="submit"]')?.matches(':disabled') === true`);
+}
+
+async function exerciseGraphQLBindings(window: BrowserWindow, projectPath: string): Promise<void> {
+  const { project } = await loadProjectFiles(projectPath);
+  const page = project.pages.find(({ name }) => name === 'index');
+  const query = project.settings.graphQLOperations?.find(({ name }) => name === 'SmokeListCustomers');
+  const client = page?.components.find(
+    (component) =>
+      component.type === 'WebApiClient' &&
+      normalizeApiClientConfiguration(component.props.apiClientConfig).connection === 'restgo-session',
+  );
+  if (page === undefined || query === undefined || client === undefined) {
+    throw new Error('The GraphQL binding smoke requires a saved query and a RestGo API Client.');
+  }
+
+  await click(window, 'button[aria-label="Design"]');
+  await click(window, 'button[role="tab"][aria-label="Properties"]');
+  await setControl(window, 'input[aria-label="Search components"]', '');
+  await ready(
+    window,
+    `(() => {
+      const captions = [...document.querySelectorAll('.wr-palette-item-caption')].map((node) => node.textContent?.trim());
+      return captions.includes('API Client') && !captions.includes('GraphQL');
+    })()`,
+  );
+  for (const control of [
+    {
+      caption: 'Data Grid',
+      label: 'Data Grid',
+      fields: [['Dynamic field for Data Grid column 1', '/name']],
+    },
+    {
+      caption: 'Combo Box',
+      label: 'ComboBox',
+      fields: [['ComboBox display field', '/name'], ['ComboBox key field', '/id']],
+    },
+  ] as const) {
+    await click(window, `[role="treeitem"][data-component-id=${JSON.stringify(page.rootComponentId)}]`);
+    await ready(
+      window,
+      `(() => {
+        const caption = [...document.querySelectorAll('.wr-palette-item-caption')]
+          .find((node) => node.textContent?.trim() === ${JSON.stringify(control.caption)});
+        const item = caption?.closest('.wr-palette-item');
+        if (!(item instanceof HTMLElement)) return false;
+        item.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+        return true;
+      })()`,
+    );
+    const configure = `button[aria-label="Configure ${control.label}"]`;
+    const close = `button[aria-label="Close ${control.label} configuration"]`;
+    const source = `[aria-label="${control.label} API Client"]`;
+    const isDataGrid = control.label === 'Data Grid';
+    const operation = isDataGrid
+      ? '[aria-label="Data Grid query"]'
+      : '[aria-label="ComboBox operation"]';
+    const value = `graphql:${query.id}`;
+    await click(window, configure);
+    const componentId: unknown = await window.webContents.executeJavaScript(
+      `document.querySelector('.wr-inspector-selection')?.getAttribute('title')`,
+      true,
+    );
+    if (typeof componentId !== 'string' || page.components.some(({ id }) => id === componentId)) {
+      throw new Error(`${control.caption} was not inserted from the palette.`);
+    }
+    const treeItem = `[role="treeitem"][data-component-id=${JSON.stringify(componentId)}]`;
+    const sourceType = '[aria-label="Data Grid data source"]';
+    const endpoint = '[aria-label="Data Grid operation"]';
+    const responseList = '[aria-label="Data Grid response list"]';
+    await setControl(window, source, client.id);
+    if (isDataGrid) {
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'api-client' &&
+          document.querySelector(${JSON.stringify(responseList)}) instanceof HTMLSelectElement &&
+          ![...document.querySelector(${JSON.stringify(endpoint)}).options].some((option) => option.value.startsWith('graphql:'))`,
+      );
+      await setControl(window, sourceType, 'graphql');
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(responseList)}) === null &&
+          document.querySelector(${JSON.stringify(operation)})?.options.length === 1`,
+      );
+      await click(window, close);
+      const clientButton = `.wr-nonvisual-item[data-nonvisual-component-id=${JSON.stringify(client.id)}]`;
+      await ready(
+        window,
+        `(() => {
+          const button = document.querySelector(${JSON.stringify(clientButton)});
+          if (!(button instanceof HTMLElement)) return false;
+          button.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+          return true;
+        })()`,
+      );
+      await click(window, 'button[aria-label="Manage GraphQL operations"]');
+      const queryImport = `.wr-api-graphql-operations input[value=${JSON.stringify(query.id)}]`;
+      await click(window, queryImport);
+      await ready(window, `document.querySelector(${JSON.stringify(queryImport)})?.checked === true`);
+      await clickText(window, 'Save API Client');
+      await ready(window, `document.querySelector('.wr-api-client-dialog') === null`);
+      await click(window, treeItem);
+      await click(window, configure);
+      await setControl(window, source, client.id);
+      await setControl(window, sourceType, 'graphql');
+      await ready(
+        window,
+        `[...document.querySelector(${JSON.stringify(operation)}).options].map((option) => option.value).join(',') === ${JSON.stringify(`,${value}`)}`,
+      );
+    }
+    await setControl(window, operation, value);
+    for (const [label, field] of control.fields) {
+      await setControl(window, `[aria-label=${JSON.stringify(label)}]`, field);
+    }
+    await click(window, '.wr-data-grid-configuration-actions button.primary');
+    await ready(window, `document.querySelector(${JSON.stringify(operation)}) === null`);
+    await click(window, configure);
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(source)})?.value === ${JSON.stringify(client.id)} &&
+        document.querySelector(${JSON.stringify(operation)})?.value === ${JSON.stringify(value)}`,
+    );
+    if (isDataGrid) {
+      const columnField = '[aria-label="Dynamic field for Data Grid column 1"]';
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(sourceType)})?.value === 'graphql' &&
+          document.querySelector(${JSON.stringify(columnField)})?.value === '/name'`,
+      );
+      await setControl(window, sourceType, 'api-client');
+      await ready(
+        window,
+        `document.querySelector(${JSON.stringify(source)})?.value === ${JSON.stringify(client.id)} &&
+          document.querySelector(${JSON.stringify(endpoint)})?.value === '' &&
+          document.querySelector(${JSON.stringify(responseList)})?.disabled === true &&
+          document.querySelector(${JSON.stringify(columnField)})?.value === ''`,
+      );
+    }
+    await click(window, close);
+    await window.webContents.send('webrad:menu-command', 'edit.delete');
+    await ready(window, `document.querySelector(${JSON.stringify(treeItem)}) === null`);
+  }
+  await window.webContents.send('webrad:menu-command', 'file.save');
+  await ready(window, `document.querySelector('[data-project-save-state="Saved"]') !== null`);
+  const saved = await loadProjectFiles(projectPath);
+  const savedClient = saved.project.pages.find(({ id }) => id === page.id)?.components.find(
+    ({ id }) => id === client.id,
+  );
+  const imported = normalizeApiClientConfiguration(savedClient?.props.apiClientConfig)
+    .graphQLOperationIds;
+  if (imported?.length !== 1 || imported[0] !== query.id) {
+    throw new Error('The API Client did not persist only the imported GraphQL query.');
+  }
 }
 
 async function verifyDialogViewport(window: BrowserWindow, stacked = false): Promise<void> {
@@ -704,6 +964,7 @@ export async function runApiClientDesignerSmoke(
     idoperacao: null,
   }));
   let publishedLayoutFixture = false;
+  let catalogNeedsTokenVerification = false;
   let publishedLayoutCustomerActive = true;
   const publishedLayoutEndpoints: RestGoAdminEndpoint[] = [
     {
@@ -799,6 +1060,15 @@ export async function runApiClientDesignerSmoke(
           .writeHead(403)
           .end(JSON.stringify({ error: 'Administrative fixture token required' }));
         return;
+      }
+      if (catalogNeedsTokenVerification && request.method === 'GET') {
+        if (route !== '/backend/endpoints') {
+          response.writeHead(401).end(JSON.stringify({ error: 'authentication required' }));
+          return;
+        }
+        // Keep the first verification in flight while any concurrent catalog requests arrive.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        catalogNeedsTokenVerification = false;
       }
       if (publishedLayoutFixture && request.method === 'POST') {
         if (route === '/backend/endpoints/13/activate') {
@@ -1370,20 +1640,40 @@ export async function runApiClientDesignerSmoke(
       window,
       `document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true && document.querySelector('.wr-restgo-admin-settings .wr-restgo-identity small')?.textContent === ${JSON.stringify(rememberAdminToken ? 'Administrative token encrypted on this device.' : 'Administrative token kept for this IDE session.')}`,
     );
+    await ready(
+      window,
+      `(() => {
+        const header = document.querySelector('.wr-restgo-workspace-header');
+        const toast = header?.querySelector('.wr-restgo-notice.is-floating[role="status"]');
+        const body = document.querySelector('.wr-restgo-workspace-body');
+        if (!header || !toast || !body || !toast.textContent.includes('Administrative access verified.')) return false;
+        const notice = toast.getBoundingClientRect();
+        const top = header.getBoundingClientRect();
+        const content = body.getBoundingClientRect();
+        return getComputedStyle(toast).position === 'absolute' && Math.abs(content.top - top.bottom) <= 1 &&
+          notice.top >= content.top && notice.width < top.width && notice.right <= top.right && notice.left >= top.left;
+      })()`,
+    );
     await window.webContents.executeJavaScript(
       `document.querySelector('.wr-restgo-connection').scrollIntoView({ block: 'start' })`,
       true,
     );
     await captureAdministrativeLayout(window, screenshotRoot, baseUrl);
+    await ready(window, `document.querySelector('.wr-restgo-notice.is-floating') === null
+      && document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true`);
     log(
-      'renderer RestGO administrative layout passed: remembered token storage result, catalog counts, actions and desktop/narrow geometry',
+      'renderer RestGO administrative layout passed: remembered token storage result, catalog counts, actions, desktop/narrow geometry and floating confirmation that dismisses automatically',
     );
     publishedLayoutFixture = true;
     await click(window, '.wr-restgo-sidebar nav button:nth-child(2)');
+    catalogNeedsTokenVerification = true;
     await clickText(window, 'Refresh', '.wr-restgo-header-tools');
     await ready(
       window,
-      `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 3 && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'`,
+      `document.querySelectorAll('.wr-restgo-published:not([hidden]) .wr-restgo-api-card').length === 3
+        && document.querySelector('.wr-restgo-workspace')?.getAttribute('aria-busy') === 'false'
+        && document.querySelector('.wr-restgo-status')?.textContent.includes('Admin connected') === true
+        && document.querySelector('.wr-restgo-workspace [role="alert"]') === null`,
     );
     await clickText(window, 'Unpublish', '.wr-restgo-api-card:nth-child(2)');
     await ready(
@@ -1599,10 +1889,11 @@ export async function runApiClientDesignerSmoke(
     );
     await click(window, 'button[aria-label="RestGo integration"]');
     await exerciseRestGoGraphQL(window, projectPath, `${screenshotRoot}-restgo-graphql.png`);
+    await exerciseGraphQLBindings(window, projectPath);
     if (calls.some((call) => call.path.includes('/graphql-admin/') && call.method !== 'GET')) {
       throw new Error('GraphQL operation authoring wrote to the RestGO instance.');
     }
-    log('renderer RestGO GraphQL operation editor passed: published schema, typed filter, field selection and project persistence');
+    log('renderer RestGO GraphQL operation editor passed: published schema, Query and Insert saved and reopened under one table, continuous editor surface, responsive typed filter rows, indented groups, field selection, API Client import, Data Grid source filtering and saved binding, and ComboBox binding');
     log(
       `renderer API Client designer passed: request, settings and response layout, readable controls, tabs, all methods, light/dark theme, 1080/740 viewport, custom HTTP test, delete final endpoint, save/reopen empty list, recreate endpoint, fixed RestGO URL, Bearer test, safe persistence; screenshots ${screenshotRoot}-custom.png, ${screenshotRoot}-custom-light.png, ${screenshotRoot}-custom-compact.png, ${screenshotRoot}-custom-narrow.png, ${screenshotRoot}-response.png, ${screenshotRoot}-empty.png and ${screenshotRoot}-restgo.png`,
     );

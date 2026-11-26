@@ -9,12 +9,15 @@ import { RestGoDevelopmentLogin } from './RestGoDevelopmentLogin';
 interface Props {
   readonly section: RestGoSection;
   readonly busy: boolean;
+  readonly settingsBusy: boolean;
+  readonly adminStartupError: string | null;
+  readonly dismissAdminStartupError: () => void;
   readonly draftSettings: RestGoProjectSettings;
   readonly settingsError: string | null;
   readonly settingsDirty: boolean;
   readonly setDraftSettings: Dispatch<SetStateAction<RestGoProjectSettings>>;
   readonly setSettingsError: Dispatch<SetStateAction<string | null>>;
-  readonly saveSettings: (event: FormEvent) => Promise<void>;
+  readonly saveSettings: (event: FormEvent) => void;
   readonly status: RestGoAdminStatus | null;
   readonly catalog: RestGoAdminCatalog;
   readonly groups: readonly RestGoEndpointGroup[];
@@ -34,6 +37,9 @@ function normalizedBaseUrl(value: string): string {
 export function RestGoConnectionPanel({
   section,
   busy,
+  settingsBusy,
+  adminStartupError,
+  dismissAdminStartupError,
   draftSettings,
   settingsError,
   settingsDirty,
@@ -66,9 +72,7 @@ export function RestGoConnectionPanel({
       <form
         className="wr-restgo-connection-section wr-restgo-runtime-settings"
         aria-label="Application connection"
-        onSubmit={(event) => {
-          void saveSettings(event);
-        }}
+        onSubmit={saveSettings}
       >
         <div className="wr-restgo-connection-heading">
           <Icon name="globe" />
@@ -78,7 +82,7 @@ export function RestGoConnectionPanel({
           </div>
           <span className="wr-restgo-scope">Project settings</span>
         </div>
-        <fieldset disabled={busy} className="wr-restgo-settings-content">
+        <fieldset disabled={settingsBusy} className="wr-restgo-settings-content">
           <RestGoSettingsSection
             settings={draftSettings}
             error={settingsError}
@@ -105,7 +109,7 @@ export function RestGoConnectionPanel({
             <button
               className="wr-restgo-button is-primary"
               type="submit"
-              disabled={busy || !settingsDirty}
+              disabled={settingsBusy || !settingsDirty}
             >
               <Icon name="save" />
               Apply configuration
@@ -127,6 +131,15 @@ export function RestGoConnectionPanel({
             </div>
             <span className="wr-restgo-scope">IDE only</span>
           </div>
+          {adminStartupError && (
+            <div className="wr-restgo-alert" role="alert">
+              <Icon name="alert-circle" />
+              <span>{adminStartupError}</span>
+              <button type="button" aria-label="Dismiss error" onClick={dismissAdminStartupError}>
+                <Icon name="close" />
+              </button>
+            </div>
+          )}
           {status?.connected ? (
             <div className="wr-restgo-connected-content">
               <div className="wr-restgo-identity">

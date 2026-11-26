@@ -79,15 +79,20 @@ describe('RestGo design-time administration', () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
-  it('collects current paginated catalogs and normalizes omitted optional fields', async () => {
+  it('authenticates before loading the remaining catalog concurrently and handles pagination', async () => {
     await connect();
+    let verified = false;
     fetcher.mockImplementation(async (input) => {
       const url = new URL(String(input));
       if (url.pathname.endsWith('/endpoints')) {
+        // A cold token is verified asynchronously before other routes can use its cached result.
+        await Promise.resolve();
+        verified = true;
         return url.searchParams.get('page') === '1'
           ? jsonResponse({ data: [endpoint], has_more: true })
           : jsonResponse({ data: [{ ...endpoint, id: 8, metodo: 'POST' }], has_more: false });
       }
+      if (!verified) return jsonResponse({ error: 'authentication required' }, 401);
       if (url.pathname.endsWith('/api-operations')) {
         return jsonResponse({
           data: [{ id: 4, ativo: true, nome: 'CreateCustomer' }],

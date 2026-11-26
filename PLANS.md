@@ -1,5 +1,83 @@
 # WebRAD delivery plan
 
+## Typed GraphQL execution on API Client
+
+Page and reusable code can execute an imported query or mutation through
+`ApiClient.graphql.execute` with a typed member from `graphql.operation`.
+An operation's typed `parameter` fields prepare values before execution.
+Execution also accepts parameters directly as the second argument and
+optional execution settings as the third. The compiled RestGO smoke prepares
+a filter before execution and checks the result. Validation has not been run.
+
+## GraphQL operations imported per API Client
+
+An API Client saves references to selected RestGO GraphQL operations. The
+designer, compiler and generated client use that selection for Data Grid,
+ComboBox and typed application code. Existing saved bindings supply the
+initial imports for older clients. The Electron smoke checks that the grid
+only offers the query after import. Validation has not been run.
+
+## Data Grid source selection
+
+The configuration dialog lets users choose API Client or GraphQL before
+selecting an operation. Both sources use the selected client instance. Changing
+the source clears the previous operation, response list, and column field
+bindings. The existing Electron smoke exercises both source choices and reopens
+a saved GraphQL binding. Validation has not been run.
+
+## RestGO GraphQL editor layout
+
+Use a continuous editor surface with section dividers, an underlined active
+action, and plain checkboxes. Condition and write-field controls share a row
+where space permits. Single-line fields, selectors and condition buttons share
+a 30 px height. The filter selector displays familiar SQL symbols and keywords
+while preserving the published GraphQL operator names. Nested condition groups
+use an indented guide and retain their AND/OR logic. The existing Electron smoke
+covers adding and removing a group,
+checks control heights and captures the layout at desktop and narrow widths.
+Validation was not requested or run.
+
+## RestGO remembered administrative access on startup
+
+Restore the encrypted administrative credential and complete the first catalog
+request before loading other resources in parallel. RestGo limits concurrent
+verification of tokens outside its cache and can return HTTP 401 if the IDE
+starts every catalog request together. The workspace defers opening GraphQL
+metadata requests until the startup catalog resolves and restores the Remember
+selection from the credential status. Validation was not requested or run.
+
+## RestGO verification notice and compact GraphQL editor
+
+The administrative verification notice floats below the workspace header and
+dismisses after four seconds. GraphQL keeps the table controls together and
+groups each action's options in one panel with inline pagination. The existing
+Electron flow covers the toast lifecycle and compact editor layout. Validation
+was not requested or run.
+
+## RestGO GraphQL actions by table
+
+Select a published database and table, enable the available actions, and apply
+them in one project update. Existing operations share a table entry and retain
+their names, IDs, and component bindings. Query, Insert, Update, and Delete keep
+their own settings. The Electron API Client smoke now covers saving and
+reopening Query and Insert together. Validation was not requested or run.
+
+## RestGO application token on first apply
+
+Application settings can be applied while the IDE restores administrative
+access. Startup errors for that access appear in its own card on the Connection
+page. The application confirmation survives an instance URL change. The
+existing Electron settings smoke requires the confirmation after one submit
+and checks disk persistence after Save.
+
+## Designer canvas horizontal scrolling
+
+The Designer canvas shares one scroll container across both axes, with its
+horizontal scrollbar at the bottom of the workspace above the component tray.
+The responsive preset controls layout and breakpoints, and selection hitboxes
+scroll with their components. The Electron Menu smoke exercises horizontal
+overflow in the Tablet preset.
+
 ## RestGo secure-token save errors (2026-11-24)
 
 When secure storage is selected and available, failures while encrypting,
@@ -19,14 +97,23 @@ requests and endpoint synchronization.
 
 The RestGO GraphQL workspace reads published schemas from RestGo and stores
 named queries and mutations in the WebRAD project. The generated browser runtime
-runs them with the current RestGo user session. WebGraphQL exposes typed
-operation names, variables, results, and events in page and reusable code.
+runs them with the current RestGo user session. API Client exposes typed
+operation names, variables, results, and events through `Connection.GraphQL`
+in page and reusable code. The component registry exposes API Client for both
+HTTP requests and saved GraphQL operations.
 
-Data Grid and ComboBox can bind the saved queries. The Data Grid uses cursor
+Data Grid and ComboBox persist the API Client and operation IDs for both
+types of operation. The Data Grid uses cursor
 navigation and allows opt-in insert, update, and delete actions with local
 drafts. Page code chooses when to call `SaveChanges()` using
 `OnChangesChanged` or a separate Save action. RestGo owns schema publication
 and permissions. See [RestGo GraphQL in WebRAD](docs/restgo-graphql.md).
+The Electron smoke scenarios use the API Client in the Designer and compiled
+browser fixture. Validation was not requested or run.
+
+Project creation generates page sources through the same API Client binding
+lookup. The lookup skips components without a data binding and resolves each
+configured source by component ID within the document.
 
 ## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
 

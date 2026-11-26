@@ -68,9 +68,44 @@
   cursor: pointer;
 }
 
-.wr-api-client-dialog .wr-api-import-button {
-  width: 100%;
+.wr-api-import-actions {
+  display: grid;
+  gap: 5px;
   margin: 4px 0 8px;
+}
+
+.wr-api-import-button[aria-pressed='true'] {
+  outline: 1px solid var(--wr-accent);
+}
+
+.wr-api-graphql-operations {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.wr-api-graphql-operations :is(h3, p) {
+  margin: 0;
+}
+
+.wr-api-graphql-operations p {
+  color: var(--wr-muted-text);
+}
+
+.wr-api-graphql-operations label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--wr-border);
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+
+.wr-api-graphql-operations small {
+  color: var(--wr-muted-text);
+  text-transform: capitalize;
 }
 
 .wr-api-client-dialog .wr-api-operation-list {

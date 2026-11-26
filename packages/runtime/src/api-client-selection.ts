@@ -1,21 +1,26 @@
 import type { WebApiAccessContext, WebApiRequests } from './api-client-accessors.js';
 import { WebApiConnectionSettings, WebApiRequest } from './api-client-accessors.js';
 import type { WebApiClientConfiguration } from './api-client.js';
+import type { WebGraphQLSource } from './graphql.js';
 
 /** Per-instance request selection; catalog projections never become component globals. */
 export class WebApiSelection<
   TOutputs extends object,
   TInputs extends object,
   TDefaultHeaders extends object,
+  TGraphQL extends WebGraphQLSource,
 > {
   readonly #requests = new Map<string, WebApiRequest>();
   #selectedId: string | undefined;
-  public readonly Connection: WebApiConnectionSettings<TDefaultHeaders>;
+  public readonly Connection: WebApiConnectionSettings<TDefaultHeaders, TGraphQL>;
   public readonly Requests: WebApiRequests<TOutputs, TInputs>;
 
-  public constructor(private readonly context: WebApiAccessContext) {
+  public constructor(
+    private readonly context: WebApiAccessContext,
+    readGraphQL?: () => TGraphQL,
+  ) {
     this.#selectedId = context.readConfiguration().operations[0]?.id;
-    this.Connection = new WebApiConnectionSettings<TDefaultHeaders>(context);
+    this.Connection = new WebApiConnectionSettings<TDefaultHeaders, TGraphQL>(context, readGraphQL);
     this.Requests = new Proxy(Object.create(null) as object, {
       get: (_target, property) => {
         if (typeof property !== 'string') return undefined;

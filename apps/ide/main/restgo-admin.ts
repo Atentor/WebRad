@@ -341,8 +341,10 @@ export class RestGoAdminService {
   public async catalog(ownerId: number, input: RestGoAdminTarget): Promise<RestGoAdminCatalog> {
     const request = targetSchema.parse(input);
     const token = await this.token(ownerId, request.baseUrl);
-    const [endpoints, bancos, publications, operations] = await Promise.all([
-      this.list(request.baseUrl, token, 'endpoints', endpointSchema),
+    // RestGo limits concurrent verification of API tokens outside its cache.
+    // Authenticate one catalog request before loading the other resources in parallel.
+    const endpoints = await this.list(request.baseUrl, token, 'endpoints', endpointSchema);
+    const [bancos, publications, operations] = await Promise.all([
       this.list(request.baseUrl, token, 'bancos', databaseSchema),
       this.list(request.baseUrl, token, 'endpoints-bancos', publicationSchema),
       this.list(request.baseUrl, token, 'api-operations', operationSchema),

@@ -170,6 +170,16 @@ export interface ApiClientConfiguration {
   readonly defaultHeaders: readonly ApiClientParameter[];
   readonly timeoutMs: number;
   readonly operations: readonly ApiClientOperation[];
+  /** RestGo GraphQL operations explicitly imported into this client. */
+  readonly graphQLOperationIds?: readonly string[];
+}
+
+export function selectApiClientGraphQLOperations<T extends { readonly id: string }>(
+  configuration: ApiClientConfiguration,
+  operations: readonly T[],
+): readonly T[] {
+  const ids = new Set(configuration.graphQLOperationIds);
+  return operations.filter((operation) => ids.has(operation.id));
 }
 
 /** Rejects endpoint syntax that could escape the RestGo integration's fixed URL prefix. */
@@ -434,9 +444,18 @@ export const ApiClientConfigurationSchema: z.ZodType<ApiClientConfiguration> = z
     defaultHeaders: z.array(ApiClientParameterSchema).max(200),
     timeoutMs: z.number().int().min(1).max(120_000),
     operations: z.array(ApiClientOperationSchema).max(100),
+    graphQLOperationIds: z.array(stableIdSchema).optional(),
   })
   .strict()
   .superRefine((configuration, context) => {
+    const graphQLIds = configuration.graphQLOperationIds ?? [];
+    if (new Set(graphQLIds).size !== graphQLIds.length) {
+      context.addIssue({
+        code: 'custom',
+        message: 'GraphQL operation IDs must be unique within an API Client.',
+        path: ['graphQLOperationIds'],
+      });
+    }
     const boundToRestGo = isRestGoApiClientConnection(configuration.connection);
     if (boundToRestGo && configuration.authorization != null) {
       context.addIssue({

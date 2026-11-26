@@ -40,7 +40,7 @@ interface RestGoWorkspaceProps {
   readonly settings: RestGoProjectSettings;
   readonly section: RestGoSection;
   readonly onSectionChange?: (section: RestGoSection) => void;
-  readonly onSaveSettings: (settings: RestGoProjectSettings) => void | Promise<void>;
+  readonly onSaveSettings: (settings: RestGoProjectSettings) => void;
   readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   readonly onSaveGraphQLOperations?: (
     operations: readonly ProjectGraphQLOperation[],
@@ -59,6 +59,9 @@ const EMPTY_CATALOG: RestGoAdminCatalog = {
   publications: [],
   operations: [],
 };
+
+const ADMIN_VERIFIED_NOTICE = 'Administrative access verified. Your RestGO catalog is ready.';
+const ADMIN_NOTICE_DURATION_MS = 4_000;
 
 const SECTION_TITLES: Readonly<
   Record<RestGoSection, { readonly title: string; readonly description: string }>
@@ -86,17 +89,31 @@ function normalizedBaseUrl(value: string): string {
 }
 
 export function RestGoWorkspace(props: RestGoWorkspaceProps): ReactElement {
+  const [appliedSettingsKey, setAppliedSettingsKey] = useState<string | null>(null);
+  const clearSettingsNotice = useCallback(() => setAppliedSettingsKey(null), []);
   return (
     <RestGoWorkspaceSession
       {...props}
       key={`${props.projectId}:${normalizedBaseUrl(props.settings.baseUrl)}`}
+      settingsApplied={appliedSettingsKey === JSON.stringify([props.projectId, props.settings])}
+      onSettingsApplied={(settings) =>
+        setAppliedSettingsKey(JSON.stringify([props.projectId, settings]))
+      }
+      clearSettingsNotice={clearSettingsNotice}
     />
   );
 }
 
-function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
+interface RestGoWorkspaceSessionProps extends RestGoWorkspaceProps {
+  readonly settingsApplied: boolean;
+  readonly onSettingsApplied: (settings: RestGoProjectSettings) => void;
+  readonly clearSettingsNotice: () => void;
+}
+
+function RestGoWorkspaceSession(props: RestGoWorkspaceSessionProps): ReactElement {
   const { projectId, settings, section, onSaveSettings, onCatalogChange, onPendingChangesChange } =
     props;
+  const { settingsApplied, onSettingsApplied, clearSettingsNotice } = props;
   const savedSettingsKey = JSON.stringify(settings);
   const [draftBaseSettings, setDraftBaseSettings] = useState(savedSettingsKey);
   const [draftSettings, setDraftSettings] = useState(settings);
@@ -107,8 +124,17 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const [progressVisible, setProgressVisible] = useState(false);
   const progressTimerRef = useRef<number | null>(null);
   const [checking, setChecking] = useState(Boolean(settings.baseUrl));
+  const [adminStartupError, setAdminStartupError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const showAdminNotice = notice === ADMIN_VERIFIED_NOTICE;
+  useEffect(() => {
+    if (!showAdminNotice) return;
+    const timer = window.setTimeout(() => {
+      setNotice((current) => (current === ADMIN_VERIFIED_NOTICE ? null : current));
+    }, ADMIN_NOTICE_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [showAdminNotice]);
   const [adminToken, setAdminToken] = useState('');
   const [remember, setRemember] = useState(false);
   const [query, setQuery] = useState('');
@@ -201,21 +227,22 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       .status({ baseUrl })
       .then(async (result) => {
         if (canceled) return;
-        setStatus(result);
-        if (result.credentialError !== undefined) setError(result.credentialError);
+        setRemember(result.storage === 'encrypted');
+        setAdminStartupError(result.credentialError ?? null);
         if (result.connected) {
           const next = await window.webrad.restgoAdmin.catalog({ baseUrl });
           if (!canceled) {
             catalogRef.current = next;
             setCatalog(next);
             const issue = onCatalogChange?.(next, projectId, baseUrl);
-            if (issue) setError(issue);
+            if (issue) setAdminStartupError(issue);
           }
         }
+        if (!canceled) setStatus(result);
       })
       .catch(async (reason: unknown) => {
         if (canceled) return;
-        setError(restGoErrorMessage(reason));
+        setAdminStartupError(restGoErrorMessage(reason));
         const nextStatus = await window.webrad.restgoAdmin.status({ baseUrl }).catch(() => null);
         if (!canceled && nextStatus !== null) setStatus(nextStatus);
       })
@@ -239,6 +266,8 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       setPending(label);
       setError(null);
       setNotice(null);
+      setAdminStartupError(null);
+      clearSettingsNotice();
       try {
         const result = await action();
         if (currentScope.current === actionScope && success) setNotice(success);
@@ -259,7 +288,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
         }
       }
     },
-    [baseUrl],
+    [baseUrl, clearSettingsNotice],
   );
 
   const reloadCatalog = useCallback(async (): Promise<RestGoAdminCatalog> => {
@@ -293,9 +322,10 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       .catch(() => undefined);
   }, [baseUrl, scope]);
 
-  const saveSettings = async (event: FormEvent): Promise<void> => {
+  const saveSettings = (event: FormEvent): void => {
     event.preventDefault();
     setSettingsError(null);
+    clearSettingsNotice();
     const validation = RestGoProjectSettingsSchema.safeParse(draftSettings);
     if (!validation.success) {
       setSettingsError(validation.error.issues[0]?.message ?? 'Check the RestGO configuration.');
@@ -309,14 +339,10 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
       );
       return;
     }
+    setNotice(null);
     try {
-      await perform(
-        'Applying connection settings',
-        async () => {
-          await onSaveSettings(validation.data);
-        },
-        'Configuration applied to the project. Save the project to keep these changes.',
-      );
+      onSaveSettings(validation.data);
+      onSettingsApplied(validation.data);
     } catch (reason) {
       setSettingsError(restGoErrorMessage(reason));
     }
@@ -341,7 +367,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           setStatus(result);
           await reloadCatalog();
         },
-        'Administrative access verified. Your RestGO catalog is ready.',
+        ADMIN_VERIFIED_NOTICE,
       );
     } catch {
       /* The actionable error is displayed above the workspace. */
@@ -366,6 +392,7 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
   const openRestGo = (): void => {
     setError(null);
     setNotice(null);
+    clearSettingsNotice();
     void window.webrad.links.open('restgo').catch((reason: unknown) => {
       setError(`Could not open RestGO in your default browser: ${restGoErrorMessage(reason)}`);
     });
@@ -532,6 +559,10 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
 
   const title = SECTION_TITLES[section];
   const requiresConnection = !status?.connected;
+  const visibleNotice = settingsApplied
+    ? 'Configuration applied to the project. Save the project to keep these changes.'
+    : showAdminNotice ? null : notice;
+  const visibleError = error ?? (section === 'connection' ? null : adminStartupError);
   return (
     <section className="wr-restgo-workspace" aria-label="RestGO integration" aria-busy={busy}>
       <header className="wr-restgo-workspace-header">
@@ -568,6 +599,15 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
             </button>
           )}
         </div>
+        {showAdminNotice && (
+          <div className="wr-restgo-notice is-floating" role="status">
+            <Icon name="check-circle" />
+            <span>{ADMIN_VERIFIED_NOTICE}</span>
+            <button type="button" aria-label="Dismiss message" onClick={() => setNotice(null)}>
+              <Icon name="close" />
+            </button>
+          </div>
+        )}
       </header>
       {pending && progressVisible && (
         <div className="wr-restgo-progress" role="status">
@@ -575,20 +615,34 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
           {pending}…
         </div>
       )}
-      {error && (
+      {visibleError && (
         <div className="wr-restgo-alert" role="alert">
           <Icon name="alert-circle" />
-          <span>{error}</span>
-          <button type="button" aria-label="Dismiss error" onClick={() => setError(null)}>
+          <span>{visibleError}</span>
+          <button
+            type="button"
+            aria-label="Dismiss error"
+            onClick={() => {
+              if (error !== null) setError(null);
+              else setAdminStartupError(null);
+            }}
+          >
             <Icon name="close" />
           </button>
         </div>
       )}
-      {notice && (
+      {visibleNotice && (
         <div className="wr-restgo-notice" role="status">
           <Icon name="check-circle" />
-          <span>{notice}</span>
-          <button type="button" aria-label="Dismiss message" onClick={() => setNotice(null)}>
+          <span>{visibleNotice}</span>
+          <button
+            type="button"
+            aria-label="Dismiss message"
+            onClick={() => {
+              clearSettingsNotice();
+              setNotice(null);
+            }}
+          >
             <Icon name="close" />
           </button>
         </div>
@@ -603,6 +657,9 @@ function RestGoWorkspaceSession(props: RestGoWorkspaceProps): ReactElement {
         <RestGoConnectionPanel
           section={section}
           busy={busy}
+          settingsBusy={pending !== null}
+          adminStartupError={adminStartupError}
+          dismissAdminStartupError={() => setAdminStartupError(null)}
           draftSettings={draftSettings}
           settingsError={settingsError}
           settingsDirty={settingsDirty}

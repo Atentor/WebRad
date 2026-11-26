@@ -8,14 +8,17 @@ import type {
 } from './graphql.js';
 
 export interface WebDataGridGraphQLConfiguration {
-  readonly sourceId: string;
-  readonly operationId: string | null;
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
   readonly insertOperationId: string | null;
   readonly updateOperationId: string | null;
   readonly deleteOperationId: string | null;
+}
+
+interface DataGridGraphQLSourceConfiguration extends WebDataGridGraphQLConfiguration {
+  readonly apiClientId: string | null;
+  readonly operationId: string | null;
 }
 
 export type WebDataGridMutationValues = Readonly<Record<string, WebGraphQLValue>>;
@@ -133,7 +136,7 @@ function rowKeys(operation: WebGraphQLRuntimeOperation, row: WebGraphQLRow): Web
 }
 
 export class DataGridGraphQL {
-  #configuration: WebDataGridGraphQLConfiguration | undefined;
+  #configuration: DataGridGraphQLSourceConfiguration | undefined;
   #source: WebGraphQLSource | null = null;
   #variables: WebDataGridMutationValues | undefined;
   #unsubscribe: (() => void) | undefined;
@@ -204,11 +207,11 @@ export class DataGridGraphQL {
     ];
   }
 
-  public configure(configuration: WebDataGridGraphQLConfiguration | undefined): void {
+  public configure(configuration: DataGridGraphQLSourceConfiguration | undefined): void {
     if (JSON.stringify(configuration) === JSON.stringify(this.#configuration)) return;
     const previous = this.#configuration;
     this.#configuration = configuration;
-    if (previous?.sourceId !== configuration?.sourceId ||
+    if (previous?.apiClientId !== configuration?.apiClientId ||
         previous?.operationId !== configuration?.operationId ||
         previous?.insertOperationId !== configuration?.insertOperationId ||
         previous?.updateOperationId !== configuration?.updateOperationId ||

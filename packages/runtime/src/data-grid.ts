@@ -13,7 +13,7 @@ import {
   type WebDataGridSaveErrorEventDetail,
 } from './data-grid-graphql.js';
 import { graphQLGridTools, gridAction, openGraphQLGridEditor } from './data-grid-graphql-controls.js';
-import type { WebGraphQLRow, WebGraphQLSource } from './graphql.js';
+import type { WebGraphQLRow } from './graphql.js';
 import { createWebRadIconElement, isWebRadIconName, type WebRadIconName } from './icons.js';
 import { resolveDataGridColumnTrackWidths } from './visual.js';
 
@@ -245,16 +245,8 @@ function normalizeColumn(value: unknown, index: number): WebDataGridColumn {
 }
 
 function normalizeGraphQLConfiguration(value: unknown): WebDataGridGraphQLConfiguration | undefined {
-  if (
-    !isRecord(value) ||
-    typeof value.sourceId !== 'string' ||
-    value.sourceId.length === 0
-  ) {
-    return undefined;
-  }
+  if (!isRecord(value)) return undefined;
   return {
-    sourceId: value.sourceId,
-    operationId: typeof value.operationId === 'string' ? value.operationId : null,
     pageSize: Math.trunc(finiteNumberInRange(value.pageSize, 20, 1, 1_000)),
     showPager: value.showPager !== false,
     crudEnabled: value.crudEnabled === true,
@@ -603,8 +595,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
 
   public set configuration(value: WebDataGridConfiguration) {
     this.#configuration = normalizeWebDataGridConfiguration(value);
-    this.#graphql.configure(this.#configuration.graphql);
-    this.#render();
+    this.#bindDataSource();
   }
 
   /** Persisted project-model property name exposed to authored page code. */
@@ -626,15 +617,20 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
   }
 
   public bindApiClient(apiClient: WebApiClient | null): void {
-    this.#unsubscribe?.();
-    this.#unsubscribe = null;
     this.#apiClient = apiClient;
-    if (apiClient !== null) this.#unsubscribe = apiClient.subscribe(() => this.#render());
-    this.#render();
+    this.#bindDataSource();
   }
 
-  public bindGraphQL(source: WebGraphQLSource | null): void {
-    this.#graphql.bind(source);
+  #bindDataSource(): void {
+    this.#unsubscribe?.();
+    this.#unsubscribe = null;
+    const { apiClientId, operationId, graphql } = this.#configuration;
+    const client = this.#apiClient?.id === apiClientId ? this.#apiClient : null;
+    this.#graphql.configure(graphql === undefined ? undefined : { ...graphql, apiClientId, operationId });
+    this.#graphql.bind(graphql !== undefined && client !== null ? client.Connection.GraphQL : null);
+    if (graphql === undefined && client !== null) {
+      this.#unsubscribe = client.subscribe(() => this.#render());
+    }
     this.#render();
   }
 

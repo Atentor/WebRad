@@ -444,28 +444,25 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
 
   public set comboBoxConfig(value: WebComboBoxConfiguration | null) {
     this.#configuration = normalizeWebComboBoxConfiguration(value);
-    this.#loadGraphQLRows();
+    this.#bindDataSource();
   }
 
-  /** Observes results; requests remain under the control of authored page code. */
   public bindApiClient(apiClient: WebApiClient | null): void {
-    this.#unsubscribe?.();
-    this.#graphQL = null;
-    this.#cancelGraphQLLoad();
     this.#apiClient = apiClient;
-    this.#unsubscribe = apiClient?.subscribe(() => this.#renderApiItems()) ?? null;
-    this.#renderApiItems();
+    this.#bindDataSource();
   }
 
-  public bindGraphQL(source: WebGraphQLSource | null): void {
+  #bindDataSource(): void {
     this.#unsubscribe?.();
     this.#cancelGraphQLLoad();
-    this.#apiClient = null;
+    const client = this.#apiClient?.id === this.#configuration?.apiClientId ? this.#apiClient : null;
+    const source =
+      this.#configuration?.graphql === true && client !== null ? client.Connection.GraphQL : null;
     this.#graphQL = source;
     this.#graphQLRows = [];
     this.#renderApiItems();
     this.#unsubscribe = source?.subscribe((change) => {
-      const operationId = this.#configuration?.graphql?.operationId;
+      const operationId = this.#configuration?.operationId;
       if (operationId == null || change.operationId !== operationId) return;
       if (change.kind === 'session' || change.kind === 'parameters') {
         this.#loadGraphQLRows();
@@ -474,7 +471,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
         this.#graphQLRows = source.getPage(operationId)?.rows ?? [];
         this.#renderApiItems();
       }
-    }) ?? null;
+    }) ?? (client?.subscribe(() => this.#renderApiItems()) ?? null);
     if (source !== null) queueMicrotask(() => {
       if (this.#graphQL === source && this.#graphQLRequest === null) this.#loadGraphQLRows();
     });
@@ -489,7 +486,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
   #loadGraphQLRows(): void {
     this.#cancelGraphQLLoad();
     const source = this.#graphQL;
-    const id = this.#configuration?.graphql?.operationId;
+    const id = this.#configuration?.operationId;
     this.#graphQLRows = [];
     if (source === null || !source.authenticated || id == null || source.getOperation(id)?.kind !== 'query') {
       this.#renderApiItems();
@@ -507,7 +504,7 @@ export class WebComboBox extends WebComponent<HTMLSelectElement> {
       this.#graphQLRows = page.rows;
       this.#renderApiItems();
     }).catch(() => {
-      // Request failures also flow through the GraphQL component's OnError event.
+      // API Client publishes request failures through OnGraphQLError.
     }).finally(() => {
       if (this.#graphQLRequest === request) {
         this.#graphQLRequest = null;

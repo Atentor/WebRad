@@ -1,12 +1,79 @@
-import type {
-  GraphQLCondition,
-  GraphQLConditionGroup,
-  GraphQLInput,
-  GraphQLOperationChoice,
-  GraphQLOperationSpec,
-  GraphQLValueChoice,
-  ProjectGraphQLOperation,
+import {
+  defaultIdFactory,
+  describeGraphQLOperations,
+  type GraphQLCondition,
+  type GraphQLConditionGroup,
+  type GraphQLInput,
+  type GraphQLOperationChoice,
+  type GraphQLOperationSpec,
+  type GraphQLSchema,
+  type GraphQLValueChoice,
+  type ProjectGraphQLOperation,
 } from '@webrad/project-model';
+
+export const GRAPHQL_ACTIONS = ['query', 'insert', 'update', 'delete'] as const;
+export type GraphQLAction = GraphQLOperationSpec['kind'];
+type TableActions<T> = Partial<Record<GraphQLAction, readonly T[]>>;
+
+export interface GraphQLTableDraft {
+  readonly database: string;
+  readonly table: string;
+  readonly actions: TableActions<OperationDraft>;
+}
+
+export interface SavedGraphQLTable {
+  readonly database: string;
+  readonly table: string;
+  readonly operations: readonly ProjectGraphQLOperation[];
+}
+
+export function describeGraphQLTables(schema: GraphQLSchema): ReadonlyMap<string, TableActions<GraphQLOperationChoice>> {
+  const tables = new Map<string, TableActions<GraphQLOperationChoice>>();
+  for (const kind of GRAPHQL_ACTIONS) {
+    for (const choice of describeGraphQLOperations(schema, kind)) {
+      const actions = tables.get(choice.table) ?? {};
+      actions[kind] = [...(actions[kind] ?? []), choice];
+      tables.set(choice.table, actions);
+    }
+  }
+  return tables;
+}
+
+export function groupGraphQLOperations(operations: readonly ProjectGraphQLOperation[]): readonly SavedGraphQLTable[] {
+  const tables = new Map<string, SavedGraphQLTable>();
+  for (const operation of operations) {
+    const { database, runtime: { table } } = operation;
+    const key = `${database}:${table}`;
+    const existing = tables.get(key);
+    tables.set(key, { database, table, operations: [...(existing?.operations ?? []), operation] });
+  }
+  return [...tables.values()];
+}
+
+export function editGraphQLTable({ database, table, operations }: SavedGraphQLTable): GraphQLTableDraft {
+  const actions: TableActions<OperationDraft> = {};
+  for (const operation of operations) {
+    const { kind } = operation.spec;
+    actions[kind] = [...(actions[kind] ?? []), editGraphQLOperation(operation)];
+  }
+  return { database, table, actions };
+}
+
+export function newGraphQLAction(
+  kind: GraphQLAction,
+  choice: GraphQLOperationChoice,
+  pageSize: number,
+  usedNames: readonly string[],
+): OperationDraft {
+  const taken = new Set(usedNames.map((name) => name.trim().toLowerCase()));
+  const base = `${choice.table}_${kind}`;
+  let name = base.slice(0, 256);
+  for (let number = 2; taken.has(name.toLowerCase()); number++) {
+    const suffix = `_${number}`;
+    name = base.slice(0, 256 - suffix.length) + suffix;
+  }
+  return { id: defaultIdFactory(), name, spec: newGraphQLSpec(kind, pageSize, choice) };
+}
 
 export interface ParameterDraft {
   readonly field: string;
@@ -28,7 +95,6 @@ export interface ConditionGroupDraft {
 export interface OperationDraft {
   readonly id: string;
   readonly name: string;
-  readonly database: string;
   readonly spec: Omit<GraphQLOperationSpec, 'conditions' | 'inputs'> & {
     readonly conditions: ConditionGroupDraft;
     readonly inputs: readonly ParameterDraft[];
@@ -60,12 +126,11 @@ function conditionGroupDraft(group: GraphQLConditionGroup, parameters: RuntimePa
   };
 }
 
-export function editGraphQLOperation(operation: ProjectGraphQLOperation): OperationDraft {
-  const { id, name, database, spec, runtime } = operation;
+function editGraphQLOperation(operation: ProjectGraphQLOperation): OperationDraft {
+  const { id, name, spec, runtime } = operation;
   return {
     id,
     name,
-    database,
     spec: {
       ...spec,
       conditions: conditionGroupDraft(spec.conditions, runtime.parameters),
@@ -77,18 +142,22 @@ export function editGraphQLOperation(operation: ProjectGraphQLOperation): Operat
 export function newGraphQLSpec(
   kind: GraphQLOperationSpec['kind'],
   pageSize: number,
-  operation?: GraphQLOperationChoice,
+  operation: GraphQLOperationChoice,
 ): OperationDraft['spec'] {
+  const fields = kind === 'query' ? operation.selection : [];
+  const firstField = fields.find(({ path }) => path === 'id')
+    ?? fields.find(({ path }) => !path.includes('.'))
+    ?? fields[0];
   return {
     kind,
     pageSize,
-    rootField: operation?.rootField ?? '',
-    selectionPaths: [],
+    rootField: operation.rootField,
+    selectionPaths: firstField ? [firstField.path] : [],
     conditions: { logic: 'and', items: [] },
     orderBy: [],
-    inputs: operation?.inputs.filter((input) => input.required).map((input) =>
+    inputs: operation.inputs.filter((input) => input.required).map((input) =>
       newGraphQLParameter(input.field, input.required),
-    ) ?? [],
+    ),
   };
 }
 

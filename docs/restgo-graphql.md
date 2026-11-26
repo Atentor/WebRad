@@ -1,36 +1,90 @@
 # RestGo GraphQL in WebRAD
 
-## Define an operation
+## Configure a table
 
 1. Enable the project's RestGO integration in **RestGO > Connection**. Connect the IDE to the same RestGo instance for administrative schema discovery.
 2. Open **RestGO > GraphQL** and choose an already published database. Manage GraphQL activation, table and column permissions, and user access in RestGo. [RestGo GraphQL documentation](https://restgo.atentor.com/docs/graphql)
-3. Give the operation a name and choose **Query**, **Insert**, **Update**, or **Delete**. Select the table operation and the fields to return. You can select related fields from the relationships exposed by the schema. Configure filters, ordering, and write fields where applicable.
-4. Name the parameters and set their required flags or default values. Choose a page size for queries. Save the operation, then save the WebRAD project.
+3. Click **New**, select a table, and check the actions to use in the project. For example, enable **Query** and **Insert** to read and add records. Actions unavailable in the published schema are disabled.
+4. Use the action buttons next to the settings heading to switch between enabled actions. WebRAD suggests an operation name and an initial return field for a new query. You can select related fields and configure parameters, ordering, and pagination where applicable. For **Insert** and **Update**, configure the fields to write. For **Update** and **Delete**, add a condition that identifies the record.
+5. Click **Save actions** to apply the table's selections together, then save the WebRAD project. Reopen the table to change its actions. Clear a saved action's component bindings and API Client imports before deleting it.
 
-The manifest stores the visual operation, its generated GraphQL document, and its response schema. Preview and Build can use the saved contract without fetching administrative metadata. The browser sends requests to `POST /gql/{slug}` with the signed-in application's user session. The IDE's administrative connection stays in the Electron main process.
+Under **Conditions**, use **Add condition** for each filter. When the published schema supports both AND and OR, use **Add condition group** to combine filters under a different match rule. A vertical guide marks the conditions that belong to each subgroup.
 
-## Display a query
+The editor groups saved operations by database and table. Each operation retains its ID, name, generated GraphQL document, and response schema in the manifest. Preview and Build can use the saved contract without fetching administrative metadata. The browser sends requests to `POST /gql/{slug}` with the signed-in application's user session. The IDE's administrative connection stays in the Electron main process.
 
-Place a nonvisual **GraphQL** component on the page or reusable element. In the Data Grid or ComboBox configuration, select that component and one of the project's saved queries. Map grid columns or the ComboBox key and display fields to the selected result fields.
+## Display a query through API Client
+
+Place an **API Client** on the page or reusable element. Double-click the
+client, open **GraphQL**, select the saved queries and mutations it should
+use, and click **Save API Client**. Each client stores its own operation IDs.
+Update an operation in **RestGO > GraphQL** to update its contract everywhere
+it is imported.
+
+- In **Configure Data Grid**, select **GraphQL** under **Data source**, select
+  the **API Client**, then choose one of its imported queries. Map the columns to
+  the query's output fields. For an HTTP endpoint, select **API Client** under
+  **Data source**, then choose the client, operation, and response list.
+- In the ComboBox configuration, select the client and choose an operation from
+  **RestGo GraphQL queries**. Map the key and display fields to the query's
+  output fields.
+
+Each binding persists the API Client ID and operation ID in its component
+configuration. GraphQL pagination and mutation settings are stored on the grid.
+For record editing, import the compatible mutations into the same client as the
+query before selecting them in the grid.
+
+The imported queries and mutations are available in code through
+`ApiClient1.graphql`. The same API Client can also run its configured
+HTTP requests. Saved GraphQL operations use the project's RestGo connection and
+the signed-in user's session, independently of the client's HTTP settings.
+When an older project opens, WebRAD imports operations referenced by saved Data
+Grid and ComboBox bindings into the corresponding client. For operations used
+only in code, select those imports in the API Client.
+The API Client Inspector exposes `OnGraphQLRequest`, `OnGraphQLSuccess`,
+`OnGraphQLError`, and `OnGraphQLComplete` for saved operations.
 
 The grid uses RestGo cursors for previous and next navigation, resets its cursor when parameters or the page size change, and shows a total when the schema supplies one. The ComboBox uses the first page of the query by default. Use `setVariables` to refresh the bindings with values from page controls.
 
 ```ts
-GraphQL1.setVariables('ListCustomers', { name: SearchEdit.value });
+ApiClient1.graphql.setVariables('ListCustomers', { name: SearchEdit.value });
 ```
 
-You can also execute a named operation directly. The names, variables, and result fields come from the saved operation contract.
+To prepare a parameter before executing, assign it on the operation. Assignments
+are local to that operation on that API Client. The request starts when
+`execute` is called. Assign `undefined` to clear a prepared value.
 
 ```ts
-const page = await GraphQL1.executePage('ListCustomers', {
-  first: 10,
-  variables: { name: SearchEdit.value },
+const { graphql } = ApiClient1;
+const customers = graphql.operation.ListCustomers;
+
+customers.parameter.name = SearchEdit.value;
+const { rows } = await graphql.execute(customers);
+```
+
+Use `graphql.execute` with an operation reference from `graphql.operation`.
+Monaco completes the imported operation members and types the variables and
+result for the selected reference. Parameters passed in the second argument
+override prepared values for that execution. Use the third argument for
+execution options such as pagination.
+
+```ts
+const { graphql } = ApiClient1;
+const page = await graphql.execute(graphql.operation.ListCustomers, {
+  name: SearchEdit.value,
 });
 
-const result = await GraphQL1.executeMutation('RenameCustomer', {
+const result = await graphql.execute(graphql.operation.RenameCustomer, {
   id: 42,
   name: 'Ana',
 });
+```
+
+```ts
+const page = await graphql.execute(
+  graphql.operation.ListCustomers,
+  { name: SearchEdit.value },
+  { first: 10 },
+);
 ```
 
 ## Edit records from Data Grid

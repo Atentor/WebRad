@@ -104,8 +104,11 @@ export interface WebGraphQLSource {
   ): Promise<WebGraphQLMutationResult>;
 }
 
+type GraphQLRequestPhase = 'Request' | 'Success' | 'Error' | 'Complete';
+
 export interface WebGraphQLConfig extends WebNonvisualComponentOptions {
   readonly operations?: readonly WebGraphQLRuntimeOperation[];
+  readonly onLifecycle?: (phase: GraphQLRequestPhase, detail: WebGraphQLEventDetail) => boolean;
 }
 
 export class WebGraphQLRequestError extends Error {
@@ -224,8 +227,40 @@ type OperationOf<TParameters, TResults, TResult> = {
     : TName;
 }[OperationName<TParameters, TResults>];
 
+const graphQLOperationReference: unique symbol = Symbol('GraphQL operation reference');
+
+export interface WebGraphQLOperationReference<TName extends string = string, TParameters = object> {
+  readonly [graphQLOperationReference]: true;
+  readonly name: TName;
+  readonly id: string;
+  readonly parameter: { -readonly [TKey in keyof TParameters]-?: TParameters[TKey] | undefined };
+}
+
+export type WebGraphQLExecutionOptions<TResult> =
+  TResult extends WebGraphQLPage<unknown>
+    ? Omit<WebGraphQLPageOptions, 'variables'>
+    : WebGraphQLMutationOptions;
+
+export interface WebGraphQLExecution<TParameters extends object, TResults extends object> {
+  readonly operation: {
+    readonly [TName in OperationName<TParameters, TResults>]: WebGraphQLOperationReference<
+      TName,
+      TParameters[TName]
+    >;
+  };
+  execute<TName extends OperationName<TParameters, TResults>>(
+    operation: WebGraphQLOperationReference<TName>,
+    parameters?: TParameters[NoInfer<TName>],
+    options?: WebGraphQLExecutionOptions<TResults[NoInfer<TName>]>,
+  ): Promise<TResults[TName]>;
+  setVariables<TName extends OperationName<TParameters, TResults>>(
+    name: TName,
+    variables: TParameters[TName],
+  ): void;
+}
+
 /** Runs project-authored GraphQL operations through the signed-in RestGo user. */
-export class WebGraphQL<
+export class WebApiGraphQL<
     TParameters extends object = Record<string, WebGraphQLParameters>,
     TResults extends object = Record<string, WebGraphQLResult>,
   >
@@ -233,7 +268,10 @@ export class WebGraphQL<
   implements WebGraphQLSource
 {
   public readonly operations: readonly WebGraphQLRuntimeOperation[];
+  public readonly execution: WebGraphQLExecution<TParameters, TResults>;
+  readonly #onLifecycle: WebGraphQLConfig['onLifecycle'];
   readonly #variables = new Map<string, WebGraphQLParameters>();
+  readonly #preparedParameters = new Map<string, WebGraphQLParameters>();
   readonly #pages = new Map<string, WebGraphQLPage>();
   readonly #revisions = new Map<string, number>();
   readonly #listeners = new Set<(change: WebGraphQLChange) => void>();
@@ -246,7 +284,23 @@ export class WebGraphQL<
 
   public constructor(configuration: WebGraphQLConfig = {}) {
     super(configuration);
+    this.#onLifecycle = configuration.onLifecycle;
     this.operations = Object.freeze([...(configuration.operations ?? [])]);
+    const references: Record<string, WebGraphQLOperationReference> = Object.create(null);
+    for (const operation of this.operations) {
+      const { name, id } = operation;
+      references[name] = Object.freeze({
+        [graphQLOperationReference]: true as const,
+        name,
+        id,
+        parameter: this.#createParameterView(operation),
+      });
+    }
+    this.execution = Object.freeze({
+      operation: Object.freeze(references) as WebGraphQLExecution<TParameters, TResults>['operation'],
+      execute: this.#executeReference.bind(this),
+      setVariables: this.setVariables.bind(this),
+    });
     this.#disposeClientListener = subscribeRestGoClient((client) => this.#bindClient(client));
     try {
       this.#bindClient(getRestGoClient());
@@ -288,6 +342,29 @@ export class WebGraphQL<
     this.#invalidate(operation.id, 'parameters');
   }
 
+  #createParameterView(operation: WebGraphQLRuntimeOperation): object {
+    const view = Object.create(null) as object;
+    for (const { name } of operation.parameters) {
+      Object.defineProperty(view, name, {
+        enumerable: true,
+        get: () => {
+          const prepared = this.#preparedParameters.get(operation.id);
+          if (prepared !== undefined && Object.hasOwn(prepared, name)) {
+            return structuredClone(prepared[name]);
+          }
+          const configured = this.getVariables(operation.id);
+          return Object.hasOwn(configured, name) ? configured[name] : undefined;
+        },
+        set: (value: WebGraphQLValue | undefined) => {
+          const parameters = { ...this.#preparedParameters.get(operation.id), [name]: value };
+          const checked = this.#checkedVariables(operation, parameters, false);
+          this.#preparedParameters.set(operation.id, checked);
+        },
+      });
+    }
+    return Object.freeze(view);
+  }
+
   public getPage(idOrName: string): WebGraphQLPage | undefined {
     return this.#pages.get(this.#requireOperation(idOrName).id);
   }
@@ -307,6 +384,26 @@ export class WebGraphQL<
       operation.kind === 'query'
         ? await this.executePageById(operation.id, { variables: values })
         : await this.executeMutationById(operation.id, values);
+    return result as TResults[TName];
+  }
+
+  async #executeReference<TName extends OperationName<TParameters, TResults>>(
+    operation: WebGraphQLOperationReference<TName>,
+    parameters?: TParameters[NoInfer<TName>],
+    options?: WebGraphQLExecutionOptions<TResults[NoInfer<TName>]>,
+  ): Promise<TResults[TName]> {
+    if (this.execution.operation[operation.name] !== operation) {
+      throw new TypeError('Select an operation imported into this API Client.');
+    }
+    const selected = this.#requireOperation(operation.id);
+    const variables = {
+      ...this.#preparedParameters.get(selected.id),
+      ...(parameters as WebGraphQLParameters | undefined),
+    };
+    const result =
+      selected.kind === 'query'
+        ? await this.executePageById(selected.id, { ...options, variables })
+        : await this.executeMutationById(selected.id, variables, options as WebGraphQLMutationOptions);
     return result as TResults[TName];
   }
 
@@ -426,6 +523,7 @@ export class WebGraphQL<
     this.#listeners.clear();
     this.#pages.clear();
     this.#variables.clear();
+    this.#preparedParameters.clear();
     super.dispose();
   }
 
@@ -452,6 +550,7 @@ export class WebGraphQL<
     if (this.#identity !== null || signedOut) {
       this.#sessionRevision++;
       this.#variables.clear();
+      this.#preparedParameters.clear();
     }
     this.#identity = identity;
     for (const operation of this.operations) this.#invalidate(operation.id, 'session');
@@ -474,7 +573,7 @@ export class WebGraphQL<
   }
 
   #requireOperation(idOrName: string): WebGraphQLRuntimeOperation {
-    if (this.#disposed) throw new Error('This GraphQL component was disposed.');
+    if (this.#disposed) throw new Error('This API Client GraphQL source was disposed.');
     const operation = this.getOperation(idOrName);
     if (!operation) throw new RangeError(`GraphQL operation "${idOrName}" is unavailable.`);
     return operation;
@@ -512,6 +611,11 @@ export class WebGraphQL<
     return { _wrFirst: size, _wrAfter: options.after ?? null };
   }
 
+  #emitLifecycle(phase: GraphQLRequestPhase, detail: WebGraphQLEventDetail): boolean {
+    const accepted = this.emit(`On${phase}`, detail);
+    return this.#onLifecycle?.(phase, detail) !== false && accepted;
+  }
+
   async #run<TResult extends WebGraphQLResult>(
     operation: WebGraphQLRuntimeOperation,
     execute: () => Promise<TResult>,
@@ -519,7 +623,7 @@ export class WebGraphQL<
     const detail = { operationId: operation.id, operationName: operation.name };
     const client = this.#client;
     const revision = this.#sessionRevision;
-    if (!this.emit('OnRequest', detail)) {
+    if (!this.#emitLifecycle('Request', detail)) {
       throw new WebGraphQLRequestError('GraphQL execution was cancelled.', 'CANCELLED');
     }
     let completed: WebGraphQLEventDetail = detail;
@@ -529,15 +633,15 @@ export class WebGraphQL<
       }
       const result = await execute();
       completed = { ...detail, result };
-      if (!this.#disposed) this.emit('OnSuccess', completed);
+      if (!this.#disposed) this.#emitLifecycle('Success', completed);
       return result;
     } catch (problem) {
       const error = problem instanceof Error ? problem : new Error(String(problem));
       completed = { ...detail, error };
-      if (!this.#disposed) this.emit('OnError', completed);
+      if (!this.#disposed) this.#emitLifecycle('Error', completed);
       throw error;
     } finally {
-      if (!this.#disposed) this.emit('OnComplete', completed);
+      if (!this.#disposed) this.#emitLifecycle('Complete', completed);
     }
   }
 

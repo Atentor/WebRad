@@ -67,6 +67,7 @@ import {
   type RepeatingGroupConfiguration,
   type CurrentRowBinding,
   normalizeCurrentRowBindings,
+  normalizeApiClientConfiguration,
   normalizeDataGridConfiguration,
   ComboBoxConfigurationSchema,
   type PageModel,
@@ -1690,18 +1691,31 @@ export function App(): ReactElement {
       for (const document of documents) {
         for (const component of document.components) {
           const grid = component.type === 'WebDataGrid'
-            ? normalizeDataGridConfiguration(component.props.dataGridConfig).graphql
+            ? normalizeDataGridConfiguration(component.props.dataGridConfig)
             : undefined;
           const combo = component.type === 'WebComboBox'
             ? ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig)
             : undefined;
-          const linked = grid === undefined
-            ? [combo?.success ? combo.data.graphql?.operationId : undefined]
-            : [grid.operationId, grid.insertOperationId, grid.updateOperationId, grid.deleteOperationId];
+          const linked = grid?.graphql === undefined
+            ? [combo?.success && combo.data.graphql ? combo.data.operationId : undefined]
+            : [
+                grid.operationId,
+                grid.graphql.insertOperationId,
+                grid.graphql.updateOperationId,
+                grid.graphql.deleteOperationId,
+              ];
           if (linked.some((id) => id != null && removed.has(id))) {
             throw new Error(
               `Remove the GraphQL binding from ${document.name}.${component.name} before deleting the operation.`,
             );
+          }
+          if (component.type === 'WebApiClient') {
+            const configuration = normalizeApiClientConfiguration(component.props.apiClientConfig);
+            if (configuration.graphQLOperationIds?.some((id) => removed.has(id))) {
+              throw new Error(
+                `Remove the GraphQL import from ${document.name}.${component.name} before deleting the operation.`,
+              );
+            }
           }
         }
       }
@@ -3579,6 +3593,7 @@ export function App(): ReactElement {
           <ApiClientTesterDialog
             component={apiClientTesterComponent}
             restGoSettings={project?.settings.restGo}
+            graphQLOperations={project?.settings.graphQLOperations ?? []}
             onClose={() => setApiClientTesterComponentId(null)}
             onSave={saveApiClientConfiguration}
           />

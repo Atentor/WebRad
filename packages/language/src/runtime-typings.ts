@@ -211,7 +211,6 @@ ${chartsTypings.source}
     dataGridConfig: WebDataGridConfiguration;
     set onCalcCell(handler: WebDataGridCalcCellEventHandler<this> | null);
     bindApiClient(apiClient: WebApiClient | null): void;
-    bindGraphQL(source: WebGraphQLSource | null): void;
     readonly pendingChanges: readonly WebDataGridPendingChange[];
     Refresh(variables?: WebDataGridMutationValues): Promise<void>;
     NextPage(): Promise<void>;
@@ -637,7 +636,7 @@ ${WEB_BUTTON_ICON_TYPINGS};
     readonly apiClientId: string | null;
     readonly operationId: string | null;
     readonly listPath: string;
-    readonly graphql?: { readonly sourceId: string; readonly operationId: string | null };
+    readonly graphql?: true;
     readonly displayField: string;
     readonly keyField: string;
   }
@@ -652,7 +651,6 @@ ${WEB_BUTTON_ICON_TYPINGS};
     set items(items: readonly (string | WebSelectItem)[]);
     comboBoxConfig: WebComboBoxConfiguration | null;
     bindApiClient(apiClient: WebApiClient | null): void;
-    bindGraphQL(source: WebGraphQLSource | null): void;
     override dispose(): void;
     set onChange(handler: WebComponentEventHandler<this> | null);
   }

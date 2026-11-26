@@ -24,9 +24,10 @@ metadata, jobs, and HLS descriptors. The nonvisual `WebVideoUpload` integrates i
 with Designer, Monaco, and Preview. These routes use the Authentication session,
 never the application API token. See [Video Upload](video-upload.md).
 
-The nonvisual `WebGraphQL` runs named project queries and mutations against a
-published RestGo database with the application's Authentication session.
-[RestGo GraphQL in WebRAD](restgo-graphql.md)
+API Client exposes typed queries and mutations through `graphql.execute` and
+the imported operation references under `graphql.operation`.
+Saved operations run against a published RestGo database with the application's
+Authentication session. See [RestGo GraphQL in WebRAD](restgo-graphql.md).
 
 ## Self-service account editing
 
@@ -145,6 +146,10 @@ OS storage in the local IDE profile after the connection is verified; if secure
 storage fails or a saved credential cannot be restored, the IDE reports the
 error instead of silently switching to session-only storage. Without secure
 storage it remains temporary.
+When the IDE reopens, it restores the credential and verifies it on the first
+catalog request before loading the other resources. The password field stays
+empty because the IDE uses the restored credential directly. If RestGo rejects
+the token, check that it is active and still has administrative permission.
 **Disconnect** removes the remembered credential. It never enters `.wrproj`,
 API Client operations, Preview, or Build.
 

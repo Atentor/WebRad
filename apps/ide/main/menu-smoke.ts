@@ -595,6 +595,46 @@ async function runMenuSmokeWorkflow(
   await click('button[role="tab"][aria-label="Responsive"]');
   await click('.wr-viewport-presets button[aria-label="Tablet"]');
   await ready(menuCanvasGeometry(false));
+  const canvasOverflow = await evaluate(`(() => {
+    const wrapper = document.querySelector('[data-designer-node-id="${id}"]');
+    const canvas = wrapper?.closest('.wr-designer-scroll');
+    if (!(wrapper instanceof HTMLElement) || !(canvas instanceof HTMLElement)) return null;
+    const originalTransform = wrapper.style.transform;
+    const originalScrollLeft = canvas.scrollLeft;
+    try {
+      wrapper.style.transform = 'translateX(' + canvas.clientWidth + 'px)';
+      canvas.scrollLeft = 0;
+      const before = wrapper.getBoundingClientRect().left;
+      canvas.scrollLeft = canvas.scrollWidth;
+      return {
+        overflowX: getComputedStyle(canvas).overflowX,
+        overflowY: getComputedStyle(canvas).overflowY,
+        overflow: canvas.scrollWidth - canvas.clientWidth,
+        scrolled: canvas.scrollLeft > 0 && wrapper.getBoundingClientRect().left < before,
+      };
+    } finally {
+      wrapper.style.transform = originalTransform;
+      canvas.scrollLeft = originalScrollLeft;
+    }
+  })()`);
+  if (
+    canvasOverflow === null ||
+    typeof canvasOverflow !== 'object' ||
+    !('overflowX' in canvasOverflow) ||
+    canvasOverflow.overflowX !== 'auto' ||
+    !('overflowY' in canvasOverflow) ||
+    canvasOverflow.overflowY !== 'auto' ||
+    !('overflow' in canvasOverflow) ||
+    typeof canvasOverflow.overflow !== 'number' ||
+    canvasOverflow.overflow <= 0 ||
+    !('scrolled' in canvasOverflow) ||
+    canvasOverflow.scrolled !== true
+  ) {
+    throw new Error(
+      'Tablet canvas horizontal scrolling failed. ' + JSON.stringify(canvasOverflow),
+    );
+  }
+  options.log('renderer Tablet canvas horizontal scrolling passed: overflowing component');
   await click('.wr-viewport-presets button[aria-label="Mobile"]');
   await ready(menuCanvasGeometry(true));
   await click('.wr-viewport-presets button[aria-label="Default"]');

@@ -25,6 +25,7 @@ import {
   isDataGridGraphQLMutation,
   chartSchemaChoices,
   safeParseProject,
+  selectApiClientGraphQLOperations,
   type ProjectApplicationIcon,
   type ProjectSocialImage,
   type WebRadProject,
@@ -55,27 +56,39 @@ import type {
 } from './types.js';
 
 function validateGraphQLListSource(
-  binding: { readonly sourceId: string; readonly operationId: string | null },
+  binding: { readonly apiClientId: string | null; readonly operationId: string | null },
   components: readonly ComponentNode[],
-  operations: readonly ProjectGraphQLOperation[],
+  settings: WebRadProject['settings'],
   report: (field: string, message: string) => void,
-): ProjectGraphQLOperation | undefined {
-  if (
-    !components.some(
-      (component) => component.id === binding.sourceId && component.type === 'WebGraphQL',
-    )
-  ) {
-    report('sourceId', 'Select a WebGraphQL component in the same document.');
+): {
+  readonly query: ProjectGraphQLOperation;
+  readonly operations: readonly ProjectGraphQLOperation[];
+} | undefined {
+  if (!settings.restGo.enabled) {
+    report('apiClientId', 'Enable the RestGo connection before binding a GraphQL query.');
     return undefined;
   }
+  const client = components.find(
+    (component) => component.id === binding.apiClientId && component.type === 'WebApiClient',
+  );
+  if (client === undefined) {
+    report('apiClientId', 'Select an API Client in the same document.');
+    return undefined;
+  }
+  const configuration = ApiClientConfigurationSchema.safeParse(client.props.apiClientConfig);
+  if (!configuration.success) return undefined;
+  const operations = selectApiClientGraphQLOperations(
+    configuration.data,
+    settings.graphQLOperations ?? [],
+  );
   const query = operations.find(
     (item) => item.id === binding.operationId && item.runtime.kind === 'query',
   );
   if (query === undefined || query.responseSchema.root.kind !== 'list') {
-    report('operationId', 'Select a GraphQL query that returns a list of records.');
+    report('operationId', 'Select a GraphQL query from this API Client that returns a list of records.');
     return undefined;
   }
-  return query;
+  return { query, operations };
 }
 
 function validateRegistry(
@@ -83,7 +96,7 @@ function validateRegistry(
   registry: ComponentRegistry,
 ): readonly CompileDiagnostic[] {
   const diagnostics: CompileDiagnostic[] = [];
-  const graphQLOperations = project.settings.graphQLOperations ?? [];
+  const graphQLOperationIds = new Set(project.settings.graphQLOperations?.map(({ id }) => id));
   const documents = [
     ...project.pages.map((document, index) => ({
       document,
@@ -168,17 +181,28 @@ function validateRegistry(
               path: [...path, 'components', componentIndex, 'props', propertyName, 'connection'],
             });
           }
+          if (configuration.success) {
+            if (configuration.data.graphQLOperationIds?.length && !project.settings.restGo.enabled) {
+              diagnostics.push({
+                category: 'error',
+                source: 'registry',
+                message: 'Enable the RestGo connection to use the imported GraphQL operations.',
+                path: [...path, 'components', componentIndex, 'props', propertyName, 'graphQLOperationIds'],
+              });
+            }
+            configuration.data.graphQLOperationIds?.forEach((id, index) => {
+              if (graphQLOperationIds.has(id)) return;
+              diagnostics.push({
+                category: 'error',
+                source: 'registry',
+                message: `The imported GraphQL operation "${id}" is unavailable in the project.`,
+                path: [...path, 'components', componentIndex, 'props', propertyName, 'graphQLOperationIds', index],
+              });
+            });
+          }
         }
       }
       const rowGroup = repeatingGroupForComponent(document, component.id);
-      if (component.type === 'WebGraphQL' && !project.settings.restGo.enabled) {
-        diagnostics.push({
-          category: 'error',
-          source: 'registry',
-          message: 'Enable and configure the RestGo connection before using WebGraphQL.',
-          path: [...path, 'components', componentIndex, 'type'],
-        });
-      }
       const events =
         definition.eventsForNode?.(component, {
           document,
@@ -368,12 +392,13 @@ function validateRegistry(
           });
         };
         if (binding.graphql !== undefined) {
-          const query = validateGraphQLListSource(
-            binding.graphql,
+          const source = validateGraphQLListSource(
+            binding,
             document.components,
-            graphQLOperations,
-            (field, message) => report(`graphql.${field}`, message),
+            project.settings,
+            report,
           );
+          const query = source?.query;
           if (query !== undefined) {
             const { fields } = comboBoxSchemaChoices(query.responseSchema, '');
             for (const field of ['displayField', 'keyField'] as const) {
@@ -434,15 +459,16 @@ function validateRegistry(
               category: 'error',
               source: 'registry',
               message,
-              path: [...dataGridPath, 'graphql', field],
+              path: [...dataGridPath, ...field.split('.')],
             });
           };
-          const query = validateGraphQLListSource(
-            graphql,
+          const source = validateGraphQLListSource(
+            configuration.data,
             document.components,
-            graphQLOperations,
+            project.settings,
             report,
           );
+          const query = source?.query;
           if (query !== undefined) {
             const fields = new Set(comboBoxSchemaChoices(query.responseSchema, '').fields.map(({ path }) => path));
             for (const [index, column] of configuration.data.columns.entries()) {
@@ -455,20 +481,20 @@ function validateRegistry(
               });
             }
           }
-          if (query !== undefined && graphql.crudEnabled) {
+          if (source !== undefined && graphql.crudEnabled) {
             const kinds = ['insert', 'update', 'delete'] as const;
             if (kinds.every((kind) => graphql[`${kind}OperationId`] === null)) {
-              report('crudEnabled', 'Choose at least one GraphQL mutation to edit records.');
+              report('graphql.crudEnabled', 'Choose at least one GraphQL mutation to edit records.');
             }
             for (const kind of kinds) {
               const field = `${kind}OperationId` as const;
               const id = graphql[field];
               if (id === null) continue;
-              const mutation = graphQLOperations.find((item) => item.id === id);
-              if (mutation === undefined || !isDataGridGraphQLMutation(query, mutation, kind)) {
+              const mutation = source.operations.find((item) => item.id === id);
+              if (mutation === undefined || !isDataGridGraphQLMutation(source.query, mutation, kind)) {
                 report(
-                  field,
-                  `Choose a compatible ${kind} mutation for the query's table and selected row fields.`,
+                  `graphql.${field}`,
+                  `Choose a compatible ${kind} mutation imported into this API Client.`,
                 );
               }
             }

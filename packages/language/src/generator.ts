@@ -12,6 +12,7 @@ import {
   ComboBoxConfigurationSchema,
   ChartsConfigurationSchema,
   RepeatingGroupConfigurationSchema,
+  selectApiClientGraphQLOperations,
   parsePage,
   parseReusableElement,
   MenuDefinitionModelSchema,
@@ -57,7 +58,20 @@ function generatedClassName(page: PageModel, suffix: string): string {
   return `${pageClassName(page.name)}${suffix}`;
 }
 
-function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly string[] {
+const generatedTypeImports = [
+  'WebApiTemplateValue',
+  'WebApiQueryValue',
+  'WebApiGraphQL',
+  'WebGraphQLPage',
+  'WebGraphQLMutationResult',
+  'WebGraphQLValue',
+];
+
+function runtimeTypes(
+  page: PageModel,
+  kind: GeneratedDocumentKind,
+  graphQLOperations: readonly ProjectGraphQLOperation[] = [],
+): readonly string[] {
   return [
     ...new Set([
       kind === 'page' ? 'WebPage' : 'WebComponent',
@@ -71,11 +85,24 @@ function runtimeTypes(page: PageModel, kind: GeneratedDocumentKind): readonly st
       ...(page.components.some((component) => component.type === 'WebRepeatingGroup')
         ? ['WebRepeatingGroupCurrentRow']
         : []),
-      ...(page.components.some((component) => component.type === 'WebGraphQL')
-        ? ['WebGraphQLPage', 'WebGraphQLMutationResult', 'WebGraphQLValue']
+      ...(page.components.some(
+        (component) =>
+          component.type === 'WebApiClient' &&
+          clientGraphQLOperations(component, graphQLOperations).length > 0,
+      )
+        ? ['WebApiGraphQL', 'WebGraphQLPage', 'WebGraphQLMutationResult', 'WebGraphQLValue']
         : []),
     ]),
   ].sort();
+}
+
+function clientGraphQLOperations(
+  component: ComponentNode,
+  operations: readonly ProjectGraphQLOperation[],
+): readonly ProjectGraphQLOperation[] {
+  if (operations.length === 0) return [];
+  const parsed = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
+  return parsed.success ? selectApiClientGraphQLOperations(parsed.data, operations) : [];
 }
 
 interface ApiClientTypeDeclarations {
@@ -177,15 +204,24 @@ function apiInputType(input: WebApiBodyInput): string {
       return 'Readonly<Record<string, WebApiTemplateValue>>';
   }
 }
-function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
+function apiClientTypeDeclarations(
+  page: PageModel,
+  graphQLOperations: readonly ProjectGraphQLOperation[],
+): ApiClientTypeDeclarations {
   const declarations: string[] = [];
   const typeByComponentId = new Map<string, string>();
   for (const component of page.components) {
     if (component.type !== 'WebApiClient') continue;
-    const configuration = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
-    if (!configuration.success) continue;
+    const parsed = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
+    if (!parsed.success) continue;
+    const configuration = parsed.data;
+    const graphQL = graphQLTypeDeclarations(
+      component.name,
+      selectApiClientGraphQLOperations(configuration, graphQLOperations),
+    );
+    declarations.push(...graphQL.declarations);
     const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
-    const operationTypes = configuration.data.operations.map((operation) => ({
+    const operationTypes = configuration.operations.map((operation) => ({
       name: operation.name,
       type:
         operation.responseSchema === null
@@ -209,7 +245,7 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
       '',
     );
     declarations.push('export interface ' + inputsTypeName + ' {');
-    for (const operation of configuration.data.operations) {
+    for (const operation of configuration.operations) {
       const fields = new Map<string, string>();
       const queryNames = [...new Set(operation.query.map((query) => query.name))];
       for (const name of queryNames) fields.set(name, 'WebApiQueryValue');
@@ -234,7 +270,7 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
       );
     }
     const defaultHeaderNames = [
-      ...new Set(configuration.data.defaultHeaders.map((header) => header.name)),
+      ...new Set(configuration.defaultHeaders.map((header) => header.name)),
     ];
     declarations.push(
       '}',
@@ -250,7 +286,7 @@ function apiClientTypeDeclarations(page: PageModel): ApiClientTypeDeclarations {
     );
     typeByComponentId.set(
       component.id,
-      'WebApiClient<' + outputsTypeName + ', ' + inputsTypeName + ', ' + headersTypeName + '>',
+      `WebApiClient<${[outputsTypeName, inputsTypeName, headersTypeName, graphQL.apiType].filter(Boolean).join(', ')}>`,
     );
   }
   return { declarations, typeByComponentId };
@@ -296,13 +332,18 @@ function boundRowTypeDeclarations(
       return undefined;
     };
     const graphQL = config.success && 'graphql' in config.data ? config.data.graphql : undefined;
-    const graphQLList = graphQLOperations.find(
-      (candidate) => candidate.id === graphQL?.operationId,
-    )?.responseSchema.root;
+    const graphQLList =
+      graphQL !== undefined && config.success && apiConfig.success
+        ? selectApiClientGraphQLOperations(apiConfig.data, graphQLOperations).find(
+            (candidate) => candidate.id === config.data.operationId,
+          )?.responseSchema.root
+        : undefined;
     const apiList = operation?.responseSchema == null
       ? undefined
       : findList(operation.responseSchema.root);
-    const list = graphQLList?.kind === 'list' ? graphQLList : apiList;
+    const list = graphQL === undefined
+      ? apiList
+      : graphQLList?.kind === 'list' ? graphQLList : undefined;
     const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
     const itemType =
       list === undefined || list.children.length === 0
@@ -342,13 +383,12 @@ function graphQLParameterType(parameter: WebGraphQLParameter, type = parameter.t
 }
 
 function graphQLTypeDeclarations(
-  page: PageModel,
+  clientName: string,
   operations: readonly ProjectGraphQLOperation[],
-): ApiClientTypeDeclarations {
-  const components = page.components.filter((component) => component.type === 'WebGraphQL');
-  if (components.length === 0) return { declarations: [], typeByComponentId: new Map() };
-  const parameterType = `${pageClassName(page.name)}GraphQLParameters`;
-  const resultType = `${pageClassName(page.name)}GraphQLResults`;
+): { readonly declarations: readonly string[]; readonly apiType?: string } {
+  if (operations.length === 0) return { declarations: [] };
+  const parameterType = `${clientName}GraphQLParameters`;
+  const resultType = `${clientName}GraphQLResults`;
   const builder: SchemaTypeBuilder = { declarations: [], next: 0 };
   const results = operations.map(({ name, runtime, responseSchema }) => {
     const children = responseSchema.root.children;
@@ -378,9 +418,7 @@ function graphQLTypeDeclarations(
       '};',
       '',
     ],
-    typeByComponentId: new Map(components.map((component) => [
-      component.id, `WebGraphQL<${parameterType}, ${resultType}>`,
-    ])),
+    apiType: `WebApiGraphQL<${parameterType}, ${resultType}>`,
   };
 }
 
@@ -417,23 +455,20 @@ function documentTypeDeclarations(
   menus: readonly MenuDefinitionModel[] = [],
   graphQLOperations: readonly ProjectGraphQLOperation[] = [],
 ): ApiClientTypeDeclarations {
-  const api = apiClientTypeDeclarations(page);
+  const api = apiClientTypeDeclarations(page, graphQLOperations);
   const rows = boundRowTypeDeclarations(page, 'WebRepeatingGroup');
   const gridRows = boundRowTypeDeclarations(page, 'WebDataGrid', graphQLOperations);
-  const graphQL = graphQLTypeDeclarations(page, graphQLOperations);
   const reports = reportTypeDeclarations(page);
   return {
     declarations: [
       ...api.declarations,
       ...rows.declarations,
       ...gridRows.declarations,
-      ...graphQL.declarations,
       ...reports.declarations,
     ],
     typeByComponentId: new Map([
       ...api.typeByComponentId,
       ...rows.typeByComponentId,
-      ...graphQL.typeByComponentId,
       ...reports.typeByComponentId,
       ...page.components.flatMap((component) => {
         const index = menus.findIndex((menu) => menu.id === component.props.menuDefinitionId);
@@ -462,7 +497,6 @@ function apiListBindings(
 ): readonly {
   readonly grid: ComponentNode;
   readonly source: ComponentNode;
-  readonly method: 'bindApiClient' | 'bindGraphQL';
 }[] {
   return page.components.flatMap((grid) => {
     const configuration =
@@ -473,16 +507,12 @@ function apiListBindings(
           : grid.type === 'WebComboBox' && grid.props.comboBoxConfig != null
             ? ComboBoxConfigurationSchema.safeParse(grid.props.comboBoxConfig)
             : undefined;
-    if (configuration === undefined) return [];
-    if (!configuration.success) return [];
-    const graphQL = 'graphql' in configuration.data ? configuration.data.graphql : undefined;
-    const sourceId = graphQL?.sourceId ?? configuration.data.apiClientId;
-    const type = graphQL === undefined ? 'WebApiClient' : 'WebGraphQL';
+    if (configuration === undefined || !configuration.success) return [];
     const source = page.components.find(
-      (component) => component.id === sourceId && component.type === type,
+      (component) =>
+        component.id === configuration.data.apiClientId && component.type === 'WebApiClient',
     );
-    const method = graphQL === undefined ? 'bindApiClient' : 'bindGraphQL';
-    return source === undefined ? [] : [{ grid, source, method }];
+    return source === undefined ? [] : [{ grid, source }];
   });
 }
 
@@ -547,8 +577,9 @@ function componentConstruction(
       return [name, projection ? projection(value) : value];
     }),
   );
-  if (component.type === 'WebGraphQL') {
-    props.operations = graphQLOperations.map(({ runtime }) => runtime);
+  if (component.type === 'WebApiClient') {
+    const operations = clientGraphQLOperations(component, graphQLOperations);
+    if (operations.length > 0) props.graphQLOperations = operations.map(({ runtime }) => runtime);
   }
   const configuration =
     elementId === quoted(component.id) || !definition.instanceScopedRuntimeId
@@ -689,19 +720,14 @@ function generateDocumentSource(
     : 'super(element);';
   const lines: string[] = [
     '// Generated by WebRAD. Changes to this file will be replaced.',
-    `import { ${runtimeTypes(page, kind)
-      .filter(
-        (name) =>
-          !['WebApiTemplateValue', 'WebApiQueryValue'].includes(name) ||
-          apiClientTypes.declarations.some((line) => line.includes(name)),
+    `import { ${runtimeTypes(page, kind, options.graphQLOperations)
+      .filter((name) =>
+        !generatedTypeImports.includes(name) ||
+        apiClientTypes.declarations.some((line) => line.includes(name)) ||
+        [...apiClientTypes.typeByComponentId.values()].some((type) => type.includes(name)),
       )
       .map((name) =>
-        [
-          'WebApiTemplateValue',
-          'WebApiQueryValue',
-          'WebApiClientInstance',
-          'WebRepeatingGroupCurrentRow',
-        ].includes(name) ||
+        ['WebApiClientInstance', 'WebRepeatingGroupCurrentRow', ...generatedTypeImports].includes(name) ||
         (isReusable && name === 'WebComponent')
           ? `type ${name}`
           : name,
@@ -772,7 +798,7 @@ function generateDocumentSource(
   }
   for (const binding of gridBindings) {
     if (repeatingGroupForComponent(page, binding.grid.id) !== undefined) continue;
-    lines.push(`    this.${binding.grid.name}.${binding.method}(this.${binding.source.name});`);
+    lines.push(`    this.${binding.grid.name}.bindApiClient(this.${binding.source.name});`);
   }
   for (const binding of chartBindings) {
     if (repeatingGroupForComponent(page, binding.chart.id) !== undefined) continue;
@@ -820,7 +846,7 @@ function generateDocumentSource(
     );
     for (const binding of rowListBindings)
       lines.push(
-        `${indent}  ${rowComponent(binding.grid)}.${binding.method}(this.${binding.source.name});`,
+        `${indent}  ${rowComponent(binding.grid)}.bindApiClient(this.${binding.source.name});`,
       );
     for (const binding of rowChartBindings)
       lines.push(
@@ -988,7 +1014,7 @@ function generateDocumentTypings(
   const lines = [
     '// Generated by WebRAD for editor type information.',
     `${COMPONENT_SCOPE_PREFIX}${JSON.stringify({ ...componentReferenceScope(page), generatedClassName: className })}`,
-    `import type { ${runtimeTypes(page, kind).join(', ')} } from ${quoted(runtimeModule)};`,
+    `import type { ${runtimeTypes(page, kind, options.graphQLOperations).join(', ')} } from ${quoted(runtimeModule)};`,
     ...menuDefinitionImports(page, options.menus, true),
     '',
     ...(kind === 'page'

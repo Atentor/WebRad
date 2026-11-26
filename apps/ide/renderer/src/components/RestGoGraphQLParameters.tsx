@@ -3,6 +3,19 @@ import type { ReactElement } from 'react';
 import { Icon } from './Icon';
 import { newGraphQLParameter, type ConditionDraft, type ConditionGroupDraft, type ParameterDraft } from './restgo-graphql-draft';
 
+const operatorLabels = new Map([
+  ['eq', '='],
+  ['neq', '<>'],
+  ['gt', '>'],
+  ['gte', '>='],
+  ['lt', '<'],
+  ['lte', '<='],
+  ['in', 'IN'],
+  ['is', 'IS'],
+  ['like', 'LIKE'],
+  ['ilike', 'ILIKE'],
+]);
+
 interface ParameterFieldsProps {
   readonly draft: ParameterDraft;
   readonly choice: GraphQLValueChoice | undefined;
@@ -107,16 +120,20 @@ export function RestGoGraphQLConditionGroup({
   return (
     <div className={depth === 0 ? 'wr-restgo-graphql-condition-group' : 'wr-restgo-graphql-condition-group is-nested'}>
       <div className="wr-restgo-graphql-group-actions">
-        <label>
-          Match
-          <select
-            value={group.logic}
-            onChange={(event) => onChange({ ...group, logic: event.currentTarget.value === 'or' ? 'or' : 'and' })}
-          >
-            <option value="and">All conditions (AND)</option>
-            {operation.supportsOr && <option value="or">Any condition (OR)</option>}
-          </select>
-        </label>
+        {(operation.supportsOr || group.logic === 'or') && (
+          <label className="wr-restgo-graphql-match">
+            Match
+            <select
+              value={group.logic}
+              onChange={(event) => onChange({ ...group, logic: event.currentTarget.value === 'or' ? 'or' : 'and' })}
+            >
+              <option value="and">All conditions (AND)</option>
+              <option value="or" disabled={!operation.supportsOr}>
+                {operation.supportsOr ? 'Any condition (OR)' : 'Any condition (OR, unavailable)'}
+              </option>
+            </select>
+          </label>
+        )}
         <button
           type="button"
           className="wr-restgo-button"
@@ -129,7 +146,7 @@ export function RestGoGraphQLConditionGroup({
         {operation.supportsAnd && operation.supportsOr && (
           <button
             type="button"
-            className="wr-restgo-button"
+            className="wr-restgo-button is-quiet"
             onClick={() => onChange({ ...group, items: [...group.items, { logic: group.logic === 'and' ? 'or' : 'and', items: [] }] })}
           >
             <Icon name="add" />
@@ -155,7 +172,7 @@ export function RestGoGraphQLConditionGroup({
         const filter = operation.filters.find((candidate) => candidate.field === item.field);
         const operator = filter?.operators.find((candidate) => candidate.operator === item.operator);
         return (
-          <div className="wr-restgo-graphql-row" key={index}>
+          <div className="wr-restgo-graphql-row wr-restgo-graphql-filter-row" key={index}>
             <div className="wr-restgo-graphql-row-fields">
               <label>
                 Filter field
@@ -176,11 +193,14 @@ export function RestGoGraphQLConditionGroup({
                   value={item.operator}
                   onChange={(event) => replaceItem(index, { ...item, operator: event.currentTarget.value, source: 'application', value: '' })}
                 >
-                  {!operator && <option value={item.operator}>{item.operator} (unavailable)</option>}
-                  {filter?.operators.map((choice) => <option key={choice.operator}>{choice.operator}</option>)}
+                  {!operator && (
+                    <option value={item.operator}>{operatorLabels.get(item.operator) ?? item.operator} (unavailable)</option>
+                  )}
+                  {filter?.operators.map(({ operator: value }) => (
+                    <option key={value} value={value}>{operatorLabels.get(value) ?? value}</option>
+                  ))}
                 </select>
               </label>
-              <RemoveField label="Remove condition" onClick={() => removeItem(index)} />
             </div>
             <ParameterFields
               draft={item}
@@ -188,6 +208,7 @@ export function RestGoGraphQLConditionGroup({
               required={requireValues}
               onChange={(next) => replaceItem(index, { ...next, operator: item.operator })}
             />
+            <RemoveField label="Remove condition" onClick={() => removeItem(index)} />
           </div>
         );
       })}
@@ -225,7 +246,6 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
                   {available.map((item) => <option key={item.field}>{item.field}</option>)}
                 </select>
               </label>
-              {!choice?.required && <RemoveField label="Remove input field" onClick={() => onChange(inputs.filter((_, at) => at !== index))} />}
             </div>
             <ParameterFields
               draft={input}
@@ -233,6 +253,7 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
               required={choice?.required ?? false}
               onChange={(next) => onChange(inputs.map((entry, at) => at === index ? next : entry))}
             />
+            {!choice?.required && <RemoveField label="Remove input field" onClick={() => onChange(inputs.filter((_, at) => at !== index))} />}
           </div>
         );
       })}
@@ -253,7 +274,7 @@ export function RestGoGraphQLMutationInputs({ inputs, operation, onChange }: Mut
 
 export function RemoveField({ label, onClick }: { readonly label: string; readonly onClick: () => void }): ReactElement {
   return (
-    <button type="button" className="wr-restgo-button is-danger" aria-label={label} title={label} onClick={onClick}>
+    <button type="button" className="wr-restgo-button is-quiet is-danger" aria-label={label} title={label} onClick={onClick}>
       <Icon name="delete" />
     </button>
   );

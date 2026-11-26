@@ -50,12 +50,8 @@ export interface DataGridColumn {
   readonly cellAlign: DataGridHorizontalAlignment;
 }
 
-/**
- * Saved binding between a visual WebDataGrid and one named data operation.
- */
+/** Pagination and record editing for the grid's saved GraphQL query. */
 export interface DataGridGraphQLBinding {
-  readonly sourceId: string;
-  readonly operationId: string | null;
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
@@ -161,8 +157,6 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
     listPath: pointerSchema,
     graphql: z
       .object({
-        sourceId: stableIdSchema,
-        operationId: stableIdSchema.nullable(),
         pageSize: z.number().int().min(1).max(1_000),
         showPager: z.boolean(),
         crudEnabled: z.boolean(),
@@ -192,13 +186,6 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
   })
   .strict()
   .superRefine((configuration, context) => {
-    if (configuration.graphql !== undefined && configuration.apiClientId !== null) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Choose one Data Grid data source.',
-        path: ['graphql'],
-      });
-    }
     if (configuration.columns.length !== configuration.columnCount) {
       context.addIssue({
         code: 'custom',

@@ -19,6 +19,7 @@ import {
   type ApiClientResponseSchema,
   type ApiClientSchemaNode,
   type ComponentNode,
+  type ProjectGraphQLOperation,
   type RestGoProjectSettings,
 } from '@webrad/project-model';
 import {
@@ -72,6 +73,7 @@ interface ParameterListProps {
 export interface ApiClientTesterDialogProps {
   readonly component: ComponentNode;
   readonly restGoSettings?: RestGoProjectSettings;
+  readonly graphQLOperations?: readonly ProjectGraphQLOperation[];
   readonly onClose: () => void;
   /** Commits both properties as a single model-history transaction in the host. */
   readonly onSave: (baseUrl: string, configuration: ApiClientConfiguration) => void;
@@ -326,6 +328,7 @@ function testResultBody(
 export function ApiClientTesterDialog({
   component,
   restGoSettings,
+  graphQLOperations = [],
   onClose,
   onSave,
 }: ApiClientTesterDialogProps): ReactElement {
@@ -357,6 +360,7 @@ export function ApiClientTesterDialog({
   const [error, setError] = useState<string | null>(null);
   const [testJwt, setTestJwt] = useState('');
   const [showRestGoPicker, setShowRestGoPicker] = useState(false);
+  const [showGraphQL, setShowGraphQL] = useState(false);
   const [uploads, setUploads] = useState<readonly File[]>([]);
   const [uploadField, setUploadField] = useState('file');
   const [testParameterValues, setTestParameterValues] = useState<
@@ -365,6 +369,9 @@ export function ApiClientTesterDialog({
   const restGoBound = (configuration.connection ?? 'custom') !== 'custom';
   const effectiveBaseUrl = restGoBound ? (restGoSettings?.baseUrl ?? '') : baseUrl;
   const restGoAvailable = restGoSettings?.enabled === true && restGoSettings.baseUrl.length > 0;
+  const graphQLIds = configuration.graphQLOperationIds ?? [];
+  const graphQLChoices = new Map(graphQLOperations.map((entry) => [entry.id, entry]));
+  const missingGraphQLIds = graphQLIds.filter((id) => !graphQLChoices.has(id));
   const restGoCatalog = useRestGoApiCatalog(
     restGoAvailable &&
       restGoBound &&
@@ -410,6 +417,7 @@ export function ApiClientTesterDialog({
   };
 
   const selectOperation = (id: string): void => {
+    setShowGraphQL(false);
     if (id === selectedOperationId) return;
     if (operation !== undefined && operation.id !== id && operation.responseSchema !== null) {
       const schema = pruneApiClientResponseSchema(operation.responseSchema, selectedSchemaIds);
@@ -693,6 +701,7 @@ export function ApiClientTesterDialog({
         ) ??
         next.operations[0];
       setConfiguration(next);
+      setShowGraphQL(false);
       restGoCatalog.acceptApis(catalogApis);
       setBaseUrl('');
       setSelectedOperationId(importedOperation?.id ?? '');
@@ -756,14 +765,29 @@ export function ApiClientTesterDialog({
                     New
                   </button>
                 </div>
-                <button
-                  className="wr-api-import-button"
-                  type="button"
-                  disabled={sending}
-                  onClick={() => setShowRestGoPicker(true)}
-                >
-                  Import from RestGo
-                </button>
+                <div className="wr-api-import-actions">
+                  <button
+                    className="wr-api-import-button"
+                    type="button"
+                    disabled={sending}
+                    onClick={() => setShowRestGoPicker(true)}
+                  >
+                    Import from RestGo
+                  </button>
+                  <button
+                    className="wr-api-import-button"
+                    type="button"
+                    aria-label="Manage GraphQL operations"
+                    aria-pressed={showGraphQL}
+                    disabled={sending}
+                    onClick={() => {
+                      setError(null);
+                      setShowGraphQL((current) => !current);
+                    }}
+                  >
+                    GraphQL ({graphQLIds.length})
+                  </button>
+                </div>
                 <nav className="wr-api-operation-list" aria-label="Saved API operations">
                   {configuration.operations.map((candidate) => (
                     <button
@@ -771,9 +795,9 @@ export function ApiClientTesterDialog({
                       type="button"
                       disabled={sending}
                       aria-label={`${candidate.name || 'Untitled request'} ${candidate.method || 'GET'}`}
-                      aria-pressed={candidate.id === operation?.id}
+                      aria-pressed={!showGraphQL && candidate.id === operation?.id}
                       title={`${candidate.method || 'GET'} ${candidate.path || 'No endpoint'}`}
-                      className={candidate.id === operation?.id ? 'selected' : ''}
+                      className={!showGraphQL && candidate.id === operation?.id ? 'selected' : ''}
                       onClick={() => selectOperation(candidate.id)}
                     >
                       <small
@@ -794,7 +818,7 @@ export function ApiClientTesterDialog({
                   type="button"
                   className="wr-api-remove-operation"
                   aria-label="Remove operation"
-                  disabled={sending || operation === undefined}
+                  disabled={sending || showGraphQL || operation === undefined}
                   onClick={() => {
                     if (operation === undefined) return;
                     const remaining = configuration.operations.filter(
@@ -809,7 +833,41 @@ export function ApiClientTesterDialog({
                 </button>
               </aside>
               <div className="wr-api-request-editor">
-                {operation === undefined ? (
+                {showGraphQL ? (
+                  <section className="wr-api-graphql-operations" aria-label="GraphQL operations">
+                    <h3>GraphQL operations</h3>
+                    <p>Select the saved RestGO operations to import into this API Client.</p>
+                    {!restGoAvailable ? (
+                      <p>Enable the project connection in RestGO to import GraphQL operations.</p>
+                    ) : graphQLChoices.size === 0 && missingGraphQLIds.length === 0 ? (
+                      <p>Save an operation in RestGO → GraphQL to import it here.</p>
+                    ) : null}
+                    {[...graphQLChoices.keys(), ...missingGraphQLIds].map((id) => {
+                      const choice = graphQLChoices.get(id);
+                      return (
+                        <label key={id}>
+                          <input
+                            type="checkbox"
+                            value={id}
+                            checked={graphQLIds.includes(id)}
+                            disabled={sending || (!restGoAvailable && !graphQLIds.includes(id))}
+                            onChange={(event) => {
+                              const checked = event.currentTarget.checked;
+                              setConfiguration((current) => {
+                                const ids = new Set(current.graphQLOperationIds);
+                                if (checked) ids.add(id);
+                                else ids.delete(id);
+                                return { ...current, graphQLOperationIds: [...ids] };
+                              });
+                            }}
+                          />
+                          <span>{choice?.name ?? id}</span>
+                          <small>{choice?.runtime.kind ?? 'Unavailable'}</small>
+                        </label>
+                      );
+                    })}
+                  </section>
+                ) : operation === undefined ? (
                   <div className="wr-api-no-operations" role="status">
                     <h3>No requests</h3>
                     <div className="wr-api-empty-actions">
@@ -868,7 +926,7 @@ export function ApiClientTesterDialog({
                     onPublishedMethodChange={changePublishedMethod}
                   />
                 )}
-                {(error !== null || testResult !== null) && (
+                {(error !== null || (!showGraphQL && testResult !== null)) && (
                   <section className="wr-api-test-result" aria-live="polite">
                     <h3>Response</h3>
                     {error !== null ? (

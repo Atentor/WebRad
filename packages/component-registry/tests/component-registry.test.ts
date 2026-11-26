@@ -137,7 +137,6 @@ describe('MVP component metadata', () => {
             'WebTimer',
             'WebPayments',
             'WebApiClient',
-            'WebGraphQL',
             'WebFileUpload',
             'WebVideoUpload',
             'WebReportBuilder',
@@ -272,7 +271,6 @@ describe('MVP component metadata', () => {
     expect(registry.listByCategory('Nonvisual').map((item) => item.type)).toEqual([
       'WebPopup',
       'WebApiClient',
-      'WebGraphQL',
       'WebTimer',
       'WebPayments',
       'WebFileUpload',
@@ -470,6 +468,10 @@ describe('MVP component metadata', () => {
       'OnSuccess',
       'OnError',
       'OnComplete',
+      'OnGraphQLRequest',
+      'OnGraphQLSuccess',
+      'OnGraphQLError',
+      'OnGraphQLComplete',
     ]);
     expect(apiClient.events.every((eventDefinition) => eventDefinition.eventDetailType)).toBe(true);
   });

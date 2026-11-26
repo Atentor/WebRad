@@ -29,6 +29,17 @@ import {
 import { WebNonvisualComponent, type WebNonvisualComponentOptions } from './component.js';
 import { RestGoError, type RestGoResult, type RestGoSession } from '@webrad/restgo-sdk';
 import { getRestGoApplicationToken, getRestGoClient } from './restgo.js';
+import {
+  WebApiGraphQL,
+  type WebGraphQLRuntimeOperation,
+  type WebGraphQLSource,
+} from './graphql.js';
+
+type WebApiGraphQLExecution<TGraphQL extends WebGraphQLSource> = TGraphQL extends {
+  readonly execution: infer TExecution;
+}
+  ? TExecution
+  : object;
 
 /** Names that must never turn an API client into a thenable or replace object behavior. */
 export const WEB_API_REQUEST_RESERVED_NAMES = [
@@ -53,14 +64,15 @@ export type WebApiClientInstance<
   TOutputs extends object = Record<string, unknown>,
   TInputs extends object = Record<string, WebApiDefaultInputs>,
   TDefaultHeaders extends object = Record<string, string>,
-> = WebApiClient<TOutputs, TInputs, TDefaultHeaders> &
+  TGraphQL extends WebGraphQLSource = WebGraphQLSource,
+> = WebApiClient<TOutputs, TInputs, TDefaultHeaders, TGraphQL> &
   (string extends keyof TOutputs
     ? object
     : Pick<
         WebApiRequests<TOutputs, TInputs>,
         Exclude<
           keyof TOutputs & string,
-          | keyof WebApiClient<TOutputs, TInputs, TDefaultHeaders>
+          | keyof WebApiClient<TOutputs, TInputs, TDefaultHeaders, TGraphQL>
           | (typeof WEB_API_REQUEST_RESERVED_NAMES)[number]
         >
       >);
@@ -165,6 +177,8 @@ export interface WebApiClientOptions extends WebNonvisualComponentOptions {
   readonly fetch?: typeof globalThis.fetch;
   /** Configuration materialized by the Project Model for named operations. */
   readonly apiClientConfig?: WebApiClientConfiguration;
+  /** Saved project operations executed through the signed-in RestGo user. */
+  readonly graphQLOperations?: readonly WebGraphQLRuntimeOperation[];
 }
 
 export interface WebApiOperationState<T = unknown> {
@@ -827,18 +841,20 @@ export class WebApiClient<
   TOutputs extends object = Record<string, unknown>,
   TInputs extends object = Record<string, WebApiDefaultInputs>,
   TDefaultHeaders extends object = Record<string, string>,
+  TGraphQL extends WebGraphQLSource = WebGraphQLSource,
 > extends WebNonvisualComponent {
   #baseUrl: string;
   readonly #headers: Headers;
   readonly #fetch: typeof globalThis.fetch;
   readonly #store: WebApiRequestStore;
-  readonly #selection: WebApiSelection<TOutputs, TInputs, TDefaultHeaders>;
+  readonly #selection: WebApiSelection<TOutputs, TInputs, TDefaultHeaders, TGraphQL>;
   #states = new Map<string, WebApiOperationState<unknown>>();
   #data: Partial<TOutputs> = {};
   #lastOperationName: string | undefined;
   readonly #listeners = new Set<() => void>();
 
   readonly #directRequests = new Set<string>();
+  readonly #graphql: WebApiGraphQL | undefined;
 
   public constructor(options: WebApiClientOptions | string = {}) {
     const normalized = typeof options === 'string' ? { baseUrl: options } : options;
@@ -887,13 +903,30 @@ export class WebApiClient<
         this.#notify();
       },
     });
-    this.#selection = new WebApiSelection<TOutputs, TInputs, TDefaultHeaders>(this.#store);
+    if (normalized.graphQLOperations?.length) {
+      this.#graphql = new WebApiGraphQL({
+        id: this.id,
+        name: this.name,
+        operations: normalized.graphQLOperations,
+        onLifecycle: (phase, detail) => this.emit(`OnGraphQL${phase}`, detail),
+      });
+    }
+    const graphQL: WebGraphQLSource | undefined = this.#graphql;
+    this.#selection = new WebApiSelection<TOutputs, TInputs, TDefaultHeaders, TGraphQL>(
+      this.#store,
+      graphQL === undefined ? undefined : () => graphQL as TGraphQL,
+    );
     this.#syncDirectRequests();
   }
 
   /** Typed view of the same instance, used by generated page and reusable code. */
-  public withRequests(): WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders> {
-    return this as WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders>;
+  public withRequests(): WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders, TGraphQL> {
+    return this as WebApiClientInstance<TOutputs, TInputs, TDefaultHeaders, TGraphQL>;
+  }
+
+  public override dispose(): void {
+    this.#graphql?.dispose();
+    super.dispose();
   }
 
   #syncDirectRequests(): void {
@@ -949,8 +982,14 @@ export class WebApiClient<
   public set Configuration(value: WebApiClientConfiguration) {
     this.apiClientConfig = value;
   }
-  public get Connection(): WebApiConnectionSettings<TDefaultHeaders> {
+  public get Connection(): WebApiConnectionSettings<TDefaultHeaders, TGraphQL> {
     return this.#selection.Connection;
+  }
+  public get graphql(): WebApiGraphQLExecution<TGraphQL> {
+    if (this.#graphql === undefined) {
+      throw new Error('Import a saved GraphQL operation into this API Client first.');
+    }
+    return this.#graphql.execution as WebApiGraphQLExecution<TGraphQL>;
   }
   public get Operation(): (keyof TOutputs & string) | undefined {
     return this.#selection.selectedName as (keyof TOutputs & string) | undefined;

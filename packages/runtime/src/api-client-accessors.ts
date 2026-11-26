@@ -17,6 +17,7 @@ import type {
   WebApiTemplateParameterType,
   WebApiTemplateValue,
 } from './api-client-template.js';
+import type { WebGraphQLSource } from './graphql.js';
 
 export type WebApiQueryValue = QueryValue | readonly QueryValue[];
 export type WebApiParameterValue = WebApiTemplateValue | readonly QueryValue[];
@@ -253,15 +254,29 @@ export class WebApiResponse<T = unknown> {
   }
 }
 
-export class WebApiConnectionSettings<THeaders extends object = Record<string, string>> {
+export class WebApiConnectionSettings<
+  THeaders extends object = Record<string, string>,
+  TGraphQL extends WebGraphQLSource = WebGraphQLSource,
+> {
   public readonly Headers: WebApiHeaderValues<THeaders>;
 
-  public constructor(private readonly context: WebApiAccessContext) {
+  public constructor(
+    private readonly context: WebApiAccessContext,
+    private readonly readGraphQL?: () => TGraphQL,
+  ) {
     this.Headers = valueView(
       () => context.headerNames(),
       (name) => context.readHeader(name),
       (name, value) => context.writeHeader(name, value),
     );
+  }
+
+  /** Saved RestGo GraphQL operations for this API Client instance. */
+  public get GraphQL(): TGraphQL {
+    if (this.readGraphQL === undefined) {
+      throw new Error('Import a saved GraphQL operation into this API Client first.');
+    }
+    return this.readGraphQL();
   }
 
   public get Mode(): WebApiConnection {

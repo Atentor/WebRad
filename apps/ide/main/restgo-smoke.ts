@@ -49,11 +49,17 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
   return [
     {
       ...query,
-      spec: { kind: 'query', rootField: queryRoot, selectionPaths, conditions: { logic: 'and', items: [] }, orderBy: [], inputs: [], pageSize: 1 },
+      spec: {
+        kind: 'query', rootField: queryRoot, selectionPaths, orderBy: [], inputs: [], pageSize: 1,
+        conditions: { logic: 'and', items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: false }] },
+      },
       runtime: {
-        ...query, kind: 'query', table, rootField: queryRoot, selections: [], parameters: [],
+        ...query, kind: 'query', table, rootField: queryRoot, selections: [],
+        parameters: [
+          { name: 'customerId', type: 'Int', kind: 'integer', required: false, enumValues: [], source: { role: 'filter', fieldPath: '/id', operator: 'eq' } },
+        ],
         pagination: { defaultSize: 1, maxSize: 20 },
-        document: 'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor) { customersCollection(first: $_wrFirst, after: $_wrAfter) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
+        document: 'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor, $customerId: Int) { customersCollection(first: $_wrFirst, after: $_wrAfter, filter: { id: { eq: $customerId } }) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
       },
       responseSchema,
     },
@@ -363,12 +369,13 @@ async function connectionLayoutEvidence(
 
 async function saveProject(window: BrowserWindow, projectPath: string): Promise<void> {
   await click(window, '.wr-restgo-runtime-settings button[type="submit"]');
-  await configurationApplied(window, true);
   await rendererReady(
     window,
     `document.querySelector('.wr-restgo-runtime-settings button[type="submit"]')?.textContent?.includes('Apply configuration') === true
+      && document.querySelector('.wr-restgo-notice')?.textContent?.includes('Configuration applied to the project.') === true
       && document.querySelector('.wr-restgo-runtime-settings')?.textContent?.includes('Save the project (Ctrl+S)') === true`,
   );
+  await configurationApplied(window, true);
   await window.webContents.send('webrad:menu-command', 'file.save');
   const deadline = Date.now() + 10_000;
   while (Date.now() < deadline) {
@@ -486,7 +493,7 @@ export async function runRestGoSettingsSmoke(
   await configurationApplied(window, false);
   await click(window, 'button[aria-label="Project Explorer"]');
   log(
-    `renderer RestGO workspace passed: save, disk persistence, reopen and unapplied draft isolation; screenshot ${screenshotPath}`,
+    `renderer RestGO workspace passed: first apply confirmation, disk persistence, reopen and unapplied draft isolation; screenshot ${screenshotPath}`,
   );
 }
 
@@ -857,12 +864,15 @@ export async function runRestGoBrowserSmoke(
       capturedRequest.body = body;
       const variables = body.variables ?? {};
       if (body.operationName === 'GridCustomers') {
+        const rows = variables.customerId === undefined
+          ? graphQLRows
+          : graphQLRows.filter(({ id }) => id === variables.customerId);
         const start = variables._wrAfter === 'grid-cursor-1' ? 1 : 0;
-        const end = Math.min(graphQLRows.length, start + Number(variables._wrFirst));
+        const end = Math.min(rows.length, start + Number(variables._wrFirst));
         response.end(JSON.stringify({ data: { customersCollection: {
-          edges: graphQLRows.slice(start, end).map((node) => ({ node })),
-          pageInfo: { endCursor: end === 1 ? 'grid-cursor-1' : null, hasNextPage: end < graphQLRows.length },
-          totalCount: graphQLRows.length,
+          edges: rows.slice(start, end).map((node) => ({ node })),
+          pageInfo: { endCursor: end === 1 ? 'grid-cursor-1' : null, hasNextPage: end < rows.length },
+          totalCount: rows.length,
         } } }));
         return;
       }
@@ -1135,10 +1145,11 @@ export async function runRestGoBrowserSmoke(
         },
       }),
     );
-    const graphQL = defaultComponentRegistry.createComponent('WebGraphQL', {
+    const graphQL = defaultComponentRegistry.createComponent('WebApiClient', {
       name: 'CustomerQueries',
       parentId: boundPage.rootComponentId,
       existingNames: [...boundPage.components, login, ...paymentComponents],
+      events: { OnGraphQLSuccess: 'GraphQLSucceeded' },
     });
     const gridConfiguration = createDefaultDataGridConfiguration();
     const graphQLGrid = defaultComponentRegistry.createComponent('WebDataGrid', {
@@ -1148,8 +1159,10 @@ export async function runRestGoBrowserSmoke(
       props: {
         dataGridConfig: {
           ...gridConfiguration,
+          apiClientId: graphQL.id,
+          operationId: gridQueryId,
           graphql: {
-            sourceId: graphQL.id, operationId: gridQueryId, pageSize: 1, showPager: true,
+            pageSize: 1, showPager: true,
             crudEnabled: true, insertOperationId: null, updateOperationId: gridUpdateId, deleteOperationId: null,
           },
           columns: gridConfiguration.columns.map((column, index) => ({
@@ -1165,8 +1178,8 @@ export async function runRestGoBrowserSmoke(
       existingNames: [...boundPage.components, login, ...paymentComponents, graphQL, graphQLGrid],
       props: {
         comboBoxConfig: {
-          schemaVersion: 1, apiClientId: null, operationId: null, listPath: '',
-          displayField: '/name', keyField: '/id', graphql: { sourceId: graphQL.id, operationId: gridQueryId },
+          schemaVersion: 1, apiClientId: graphQL.id, operationId: gridQueryId, listPath: '',
+          displayField: '/name', keyField: '/id', graphql: true,
         },
       },
     });
@@ -1188,11 +1201,15 @@ export async function runRestGoBrowserSmoke(
     const project = { ...original, pages: [loginPage] };
     const result = await compileProjectToMemory(project, {
       userSources: {
-        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail, type WebDataGrid, type WebDataGridChangesEventDetail, type WebDataGridSaveChangesEventDetail } from '@webrad/runtime';
+        'pages/index.ts': `import { RestGO, getRestGoClient, type WebPage, type WebPageLoginEventDetail, type WebPageLogoutEventDetail, type WebLogin, type WebLoginUserEvent, type WebLoginRecoveryEvent, type WebPayments, type WebPaymentsOperationEventDetail, type WebPaymentsCheckoutEventDetail, type WebPaymentsHistoryEventDetail, type WebPaymentsResumeEventDetail, type WebApiClient, type WebGraphQLEventDetail, type WebDataGrid, type WebDataGridChangesEventDetail, type WebDataGridSaveChangesEventDetail } from '@webrad/runtime';
 import { createClient } from '@webrad/restgo-sdk';
 import { indexGenerated } from './index.generated';
 export class index extends indexGenerated {
   private usuarioId = '';
+  public GraphQLSucceeded(sender: WebApiClient, event: CustomEvent<WebGraphQLEventDetail>): void {
+    if (sender !== this.CustomerQueries) throw new Error('GraphQL event lost its API Client sender');
+    if (event.detail.operationName === 'GridCustomers') this.element.dataset.graphQlClientEvent = 'true';
+  }
   public GridDraftChanged(sender: WebDataGrid, event: CustomEvent<WebDataGridChangesEventDetail>): void {
     if (sender !== this.CustomerGrid) throw new Error('Grid draft event lost its concrete instance');
     this.element.dataset.graphQlDraftCount = String(event.detail.pendingChanges.length);
@@ -1307,6 +1324,31 @@ export class index extends indexGenerated {
     this.element.dataset.restgoIdentity = String(
       RestGO.auth === getRestGoClient().auth && typeof standalone.login === 'function'
     );
+    this.CustomerQueries.graphql.setVariables('GridCustomers', {});
+    if (CustomerQueries.Connection.GraphQL.getOperation('GridCustomers')?.kind !== 'query')
+      throw new Error('API Client did not expose the saved GraphQL query');
+    const prepareQuery = document.createElement('button');
+    prepareQuery.dataset.graphqlPrepare = 'true';
+    prepareQuery.textContent = 'Set customer filter';
+    prepareQuery.addEventListener('click', () => {
+      const { GridCustomers } = this.CustomerQueries.graphql.operation;
+      GridCustomers.parameter.customerId = 2;
+      this.element.dataset.graphQlPrepared = String(GridCustomers.parameter.customerId);
+    });
+    this.element.append(prepareQuery);
+    const query = document.createElement('button');
+    query.dataset.graphqlQuery = 'true';
+    query.textContent = 'Execute customer query';
+    query.addEventListener('click', () => {
+      const { graphql } = this.CustomerQueries;
+      void graphql.execute(graphql.operation.GridCustomers, undefined, { first: 1, publish: false }).then(
+        ({ rows }) => { this.element.dataset.graphQlQueryResult = rows[0]?.name ?? ''; },
+        (error: unknown) => {
+          this.element.dataset.graphQlQueryError = error instanceof Error ? error.message : String(error);
+        },
+      );
+    });
+    this.element.append(query);
     const paymentsAction = document.createElement('button');
     paymentsAction.dataset.paymentsExercise = 'true';
     paymentsAction.textContent = 'Exercise payment HTTP fixture';
@@ -1382,8 +1424,14 @@ export class index extends indexGenerated {
           if (!condition()) throw new Error(message);
         };
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
+        if (page.dataset.graphQlClientEvent !== 'true') throw new Error('API Client GraphQL success event did not fire');
         await waitForGrid(() => combo?.options[0]?.value === '1' && combo.options[0].textContent === 'Grid Alpha', 'GraphQL ComboBox did not map the option key and label');
         if (gridAction('previous').disabled !== true || gridAction('page-size').value !== '1') throw new Error('GraphQL Data Grid initial pager mismatch');
+        document.querySelector('[data-graphql-prepare="true"]').click();
+        if (page.dataset.graphQlPrepared !== '2') throw new Error('GraphQL parameter was not staged');
+        document.querySelector('[data-graphql-query="true"]').click();
+        await waitForGrid(() => page.dataset.graphQlQueryResult !== undefined || !!page.dataset.graphQlQueryError, 'Typed API Client GraphQL execution did not complete');
+        if (page.dataset.graphQlQueryResult !== 'Grid Beta') throw new Error(page.dataset.graphQlQueryError || 'Typed API Client GraphQL parameter or result mismatch');
         const setGridPageSize = (size) => {
           const select = gridAction('page-size');
           select.value = size;
@@ -1460,13 +1508,15 @@ export class index extends indexGenerated {
       throw new Error(`RestGO browser smoke failed: ${JSON.stringify(evidence)}`);
     }
     if (
+      requests.filter((request) => request.route === '/gql/demo' &&
+        (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?.customerId === 2).length !== 1 ||
       graphQLMutations.length !== 1 ||
       graphQLMutations[0]?.rowId !== 1 ||
       graphQLMutations[0]?.name !== 'Grid Alpha Saved' ||
       !requests.some((request) => request.route === '/gql/demo' &&
         (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?._wrAfter === 'grid-cursor-1')
     ) throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
-    log('renderer GraphQL Data Grid compiled runtime passed: page size, cursor navigation, independent ComboBox labels and keys, mapped drafts, undo, and one explicitly saved row; HTTP fixture');
+    log('renderer GraphQL Data Grid compiled runtime passed: typed API Client execution and binding, page size, cursor navigation, independent ComboBox labels and keys, mapped drafts, undo, and one explicitly saved row; HTTP fixture');
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
       paymentRequests.length === 0 ||

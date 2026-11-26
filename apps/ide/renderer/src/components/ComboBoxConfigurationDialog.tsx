@@ -4,12 +4,18 @@ import {
   comboBoxSchemaChoices,
   createDefaultComboBoxConfiguration,
   normalizeApiClientConfiguration,
+  selectApiClientGraphQLOperations,
   type ComboBoxConfiguration,
   type ComponentNode,
   type ProjectGraphQLOperation,
 } from '@webrad/project-model';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactElement } from 'react';
 import { createPortal } from 'react-dom';
+import {
+  ApiClientOperationOptions,
+  apiEndpointOption,
+  graphqlQueryOption,
+} from './ApiClientOperationOptions';
 
 interface ComboBoxConfigurationDialogProps {
   readonly component: ComponentNode;
@@ -39,23 +45,33 @@ export function ComboBoxConfigurationDialog({
     return parsed.success ? parsed.data : null;
   });
   const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
-  const graphQLClients = availableComponents.filter((candidate) => candidate.type === 'WebGraphQL');
-  const graphQLQueries = graphQLOperations.filter((operation) => operation.runtime.kind === 'query');
   const graphQL = draft?.graphql;
-  const apiClient = apiClients.find((candidate) => candidate.id === draft?.apiClientId);
-  const graphQLClient = graphQLClients.find((candidate) => candidate.id === graphQL?.sourceId);
+  const sourceId = draft?.apiClientId ?? null;
+  const apiClient = apiClients.find((candidate) => candidate.id === sourceId);
   const apiConfiguration =
     apiClient === undefined
       ? undefined
       : normalizeApiClientConfiguration(apiClient.props.apiClientConfig);
-  const operations = graphQL === undefined ? apiConfiguration?.operations ?? [] : graphQLQueries;
-  const operation = operations.find((candidate) => candidate.id === (graphQL?.operationId ?? draft?.operationId));
-  const choices = comboBoxSchemaChoices(operation?.responseSchema, draft?.listPath ?? '');
+  const endpoints = apiConfiguration?.operations ?? [];
+  const queries =
+    apiConfiguration === undefined
+      ? []
+      : selectApiClientGraphQLOperations(apiConfiguration, graphQLOperations).filter(
+          (candidate) => candidate.runtime.kind === 'query',
+        );
+  const operation =
+    graphQL === undefined
+      ? endpoints.find((candidate) => candidate.id === draft?.operationId)
+      : queries.find((candidate) => candidate.id === draft?.operationId);
+  const choices = comboBoxSchemaChoices(
+    operation?.responseSchema,
+    graphQL === undefined ? (draft?.listPath ?? '') : '',
+  );
   const valid =
     draft === null ||
-    ((apiClient !== undefined || graphQLClient !== undefined) &&
+    ((apiClient !== undefined) &&
       operation !== undefined &&
-      choices.lists.some((choice) => choice.path === draft.listPath) &&
+      (graphQL !== undefined || choices.lists.some((choice) => choice.path === draft.listPath)) &&
       choices.fields.some((choice) => choice.path === draft.displayField) &&
       choices.fields.some((choice) => choice.path === draft.keyField));
 
@@ -128,47 +144,35 @@ export function ComboBoxConfigurationDialog({
                 <select
                   ref={sourceRef}
                   aria-label="ComboBox API Client"
-                  value={draft === null ? '' : (graphQL?.sourceId ?? draft.apiClientId ?? UNSELECTED)}
+                  value={draft === null ? '' : (sourceId ?? UNSELECTED)}
                   onChange={(event) => {
                     const id = event.currentTarget.value;
-                    if (graphQLClients.some((candidate) => candidate.id === id)) {
-                      setDraft({
-                        ...createDefaultComboBoxConfiguration(),
-                        graphql: { sourceId: id, operationId: graphQLQueries[0]?.id ?? null },
-                      });
-                      return;
-                    }
                     const selected = apiClients.find((candidate) => candidate.id === id);
                     if (selected === undefined) {
                       setDraft(null);
                       return;
                     }
-                    const nextOperation = normalizeApiClientConfiguration(
+                    const nextEndpoint = normalizeApiClientConfiguration(
                       selected.props.apiClientConfig,
                     ).operations[0];
-                    const nextChoices = comboBoxSchemaChoices(nextOperation?.responseSchema, '');
+                    const nextChoices = comboBoxSchemaChoices(nextEndpoint?.responseSchema, '');
                     setDraft({
                       ...createDefaultComboBoxConfiguration(),
                       apiClientId: id,
-                      operationId: nextOperation?.id ?? null,
+                      operationId: nextEndpoint?.id ?? null,
                       listPath: nextChoices.lists[0]?.path ?? '',
                     });
                   }}
                 >
                   <option value="">Static items</option>
-                  {draft !== null && apiClient === undefined && graphQLClient === undefined && (
-                    <option value={graphQL?.sourceId ?? draft.apiClientId ?? UNSELECTED} disabled>
-                      (unavailable data source)
+                  {draft !== null && apiClient === undefined && (
+                    <option value={sourceId ?? UNSELECTED} disabled>
+                      (unavailable API Client)
                     </option>
                   )}
                   {apiClients.map((candidate) => (
                     <option key={candidate.id} value={candidate.id}>
                       {candidate.name}
-                    </option>
-                  ))}
-                  {graphQLClients.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.name} (GraphQL)
                     </option>
                   ))}
                 </select>
@@ -177,66 +181,65 @@ export function ComboBoxConfigurationDialog({
                 <span>Operation</span>
                 <select
                   aria-label="ComboBox operation"
-                  disabled={draft === null}
-                  value={operation?.id ?? ''}
-                  onChange={(event) => {
-                    const operationId = event.currentTarget.value || null;
-                    const nextOperation = operations.find(
-                      (candidate) => candidate.id === operationId,
-                    );
-                    const nextChoices = comboBoxSchemaChoices(nextOperation?.responseSchema, '');
-                    setDraft((current) =>
-                      current === null
-                        ? null
-                        : {
-                            ...current,
-                            ...(current.graphql === undefined
-                              ? { operationId }
-                              : { graphql: { ...current.graphql, operationId } }),
-                            listPath: nextChoices.lists[0]?.path ?? '',
-                            displayField: '',
-                            keyField: '',
-                          },
-                    );
-                  }}
-                >
-                  <option value="">(select an operation)</option>
-                  {operations.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {'method' in candidate ? `${candidate.name} — ${candidate.method} ${candidate.path}` : candidate.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Response list</span>
-                <select
-                  aria-label="ComboBox response list"
-                  disabled={operation === undefined}
+                  disabled={apiClient === undefined}
                   value={
-                    choices.lists.some((choice) => choice.path === draft?.listPath)
-                      ? draft?.listPath
-                      : UNSELECTED
+                    graphQL === undefined
+                      ? apiEndpointOption(draft?.operationId ?? null)
+                      : graphqlQueryOption(draft?.operationId ?? null)
                   }
                   onChange={(event) => {
-                    const listPath = event.currentTarget.value;
-                    setDraft((current) =>
-                      current === null
-                        ? null
-                        : { ...current, listPath, displayField: '', keyField: '' },
+                    if (sourceId === null) return;
+                    const value = event.currentTarget.value;
+                    const nextQuery = queries.find(
+                      (candidate) => graphqlQueryOption(candidate.id) === value,
                     );
+                    const nextEndpoint = endpoints.find(
+                      (candidate) => apiEndpointOption(candidate.id) === value,
+                    );
+                    const nextChoices = comboBoxSchemaChoices(nextEndpoint?.responseSchema, '');
+                    setDraft({
+                      ...createDefaultComboBoxConfiguration(),
+                      apiClientId: sourceId,
+                      operationId: nextQuery?.id ?? nextEndpoint?.id ?? null,
+                      listPath: nextChoices.lists[0]?.path ?? '',
+                      ...(nextQuery === undefined ? {} : { graphql: true }),
+                    });
                   }}
                 >
-                  <option value={UNSELECTED} disabled>
-                    (select a list)
-                  </option>
-                  {choices.lists.map((choice) => (
-                    <option key={choice.path} value={choice.path}>
-                      {choice.label}
-                    </option>
-                  ))}
+                  <ApiClientOperationOptions endpoints={endpoints} queries={queries} />
                 </select>
               </label>
+              {graphQL === undefined && (
+                <label>
+                  <span>Response list</span>
+                  <select
+                    aria-label="ComboBox response list"
+                    disabled={operation === undefined}
+                    value={
+                      choices.lists.some((choice) => choice.path === draft?.listPath)
+                        ? draft?.listPath
+                        : UNSELECTED
+                    }
+                    onChange={(event) => {
+                      const listPath = event.currentTarget.value;
+                      setDraft((current) =>
+                        current === null
+                          ? null
+                          : { ...current, listPath, displayField: '', keyField: '' },
+                      );
+                    }}
+                  >
+                    <option value={UNSELECTED} disabled>
+                      (select a list)
+                    </option>
+                    {choices.lists.map((choice) => (
+                      <option key={choice.path} value={choice.path}>
+                        {choice.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {(['displayField', 'keyField'] as const).map((field) => {
                 const label = field === 'displayField' ? 'Display field' : 'Key field';
                 return (

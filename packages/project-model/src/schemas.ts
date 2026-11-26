@@ -2241,6 +2241,60 @@ export const ProjectDebuggerSettingsSchema = z
     }
   });
 
+/** Preserve saved bindings from before clients stored their GraphQL imports. */
+function materializeLegacyGraphQLClientImports(project: WebRadProject): WebRadProject {
+  const available = new Set(project.settings.graphQLOperations?.map(({ id }) => id));
+  if (available.size === 0) return project;
+
+  const materializeDocument = (document: PageModel): PageModel => {
+    const bindings = new Map<string, Set<string>>();
+    for (const component of document.components) {
+      const grid =
+        component.type === 'WebDataGrid'
+          ? DataGridConfigurationSchema.safeParse(component.props.dataGridConfig).data
+          : undefined;
+      const combo =
+        component.type === 'WebComboBox'
+          ? ComboBoxConfigurationSchema.safeParse(component.props.comboBoxConfig).data
+          : undefined;
+      const binding = grid?.graphql !== undefined ? grid : combo?.graphql ? combo : undefined;
+      if (binding?.apiClientId == null) continue;
+      const ids = bindings.get(binding.apiClientId) ?? new Set<string>();
+      for (const id of [
+        binding.operationId,
+        grid?.graphql?.insertOperationId,
+        grid?.graphql?.updateOperationId,
+        grid?.graphql?.deleteOperationId,
+      ]) {
+        if (id != null && available.has(id)) ids.add(id);
+      }
+      bindings.set(binding.apiClientId, ids);
+    }
+    if (bindings.size === 0) return document;
+
+    const components = document.components.map((component) => {
+      const ids = bindings.get(component.id);
+      if (component.type !== 'WebApiClient' || ids === undefined || ids.size === 0) return component;
+      const config = ApiClientConfigurationSchema.safeParse(component.props.apiClientConfig);
+      if (!config.success || config.data.graphQLOperationIds !== undefined) return component;
+      return {
+        ...component,
+        props: {
+          ...component.props,
+          apiClientConfig: { ...config.data, graphQLOperationIds: [...ids] },
+        },
+      };
+    });
+    return { ...document, components };
+  };
+
+  return {
+    ...project,
+    pages: project.pages.map(materializeDocument),
+    reusableElements: project.reusableElements.map(materializeDocument),
+  };
+}
+
 export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
   (input) =>
     materializeManagedMenuLayouts(
@@ -2264,6 +2318,7 @@ export const WebRadProjectSchema: z.ZodType<WebRadProject> = z.preprocess(
     })
     .strict()
     .transform(materializeEntryPage)
+    .transform(materializeLegacyGraphQLClientImports)
     .superRefine(validateProjectRelationships),
 );
 

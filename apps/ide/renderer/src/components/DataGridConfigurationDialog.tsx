@@ -4,6 +4,7 @@ import {
   createDefaultDataGridConfiguration,
   normalizeApiClientConfiguration,
   normalizeDataGridConfiguration,
+  selectApiClientGraphQLOperations,
   type ApiClientResponseSchema,
   type ApiClientSchemaNode,
   type ComponentNode,
@@ -30,6 +31,11 @@ import { createPortal } from 'react-dom';
 import { Icon } from './Icon';
 import { IconPickerDialog } from './IconPickerDialog';
 import { DataGridGraphQLSettings } from './DataGridGraphQLSettings';
+import {
+  ApiClientOperationOptions,
+  apiEndpointOption,
+  graphqlQueryOption,
+} from './ApiClientOperationOptions';
 
 export interface DataGridConfigurationDialogProps {
   readonly component: ComponentNode;
@@ -78,13 +84,8 @@ function createDraft(value: unknown): DataGridConfiguration {
   return normalizeDataGridConfiguration(value);
 }
 
-function newGraphQLBinding(
-  sourceId: string,
-  query: ProjectGraphQLOperation | undefined,
-): DataGridGraphQLBinding {
+function newGraphQLBinding(query?: ProjectGraphQLOperation): DataGridGraphQLBinding {
   return {
-    sourceId,
-    operationId: query?.id ?? null,
     pageSize: query?.runtime.pagination?.defaultSize ?? 10,
     showPager: true,
     crudEnabled: false,
@@ -252,7 +253,7 @@ export function DataGridConfigurationDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLElement | null>(null);
-  const apiClientRef = useRef<HTMLSelectElement | null>(null);
+  const sourceRef = useRef<HTMLSelectElement | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(
     document.activeElement instanceof HTMLElement ? document.activeElement : null,
   );
@@ -262,25 +263,29 @@ export function DataGridConfigurationDialog({
   const [iconPickerColumnId, setIconPickerColumnId] = useState<string | null>(null);
 
   const apiClients = availableComponents.filter((candidate) => candidate.type === 'WebApiClient');
-  const graphQLClients = availableComponents.filter((candidate) => candidate.type === 'WebGraphQL');
-  const queries = graphQLOperations.filter((candidate) => candidate.runtime.kind === 'query');
   const graphQL = draft.graphql;
-  const query = queries.find((candidate) => candidate.id === graphQL?.operationId);
-  const apiClient = apiClients.find((candidate) => candidate.id === draft.apiClientId);
+  const sourceId = draft.apiClientId;
+  const apiClient = apiClients.find((candidate) => candidate.id === sourceId);
   const apiConfiguration =
     apiClient === undefined
       ? undefined
       : normalizeApiClientConfiguration(apiClient.props.apiClientConfig);
-  const operation = apiConfiguration?.operations.find(
-    (candidate) => candidate.id === draft.operationId,
-  );
+  const endpoints = graphQL === undefined ? (apiConfiguration?.operations ?? []) : [];
+  const clientGraphQLOperations =
+    apiConfiguration === undefined || graphQL === undefined
+      ? []
+      : selectApiClientGraphQLOperations(apiConfiguration, graphQLOperations);
+  const queries = clientGraphQLOperations.filter((candidate) => candidate.runtime.kind === 'query');
+  const query = queries.find((candidate) => candidate.id === draft.operationId);
+  const operation = endpoints.find((candidate) => candidate.id === draft.operationId);
   const listChoices: SchemaChoice[] = [];
   if (operation?.responseSchema !== null && operation?.responseSchema !== undefined) {
     collectListChoices(operation.responseSchema.root, listChoices);
   }
-  const fieldChoices = graphQL === undefined
-    ? operationSchemaChoices(operation?.responseSchema, draft.listPath)
-    : comboBoxSchemaChoices(query?.responseSchema, '').fields;
+  const fieldChoices =
+    graphQL === undefined
+      ? operationSchemaChoices(operation?.responseSchema, draft.listPath)
+      : comboBoxSchemaChoices(query?.responseSchema, '').fields;
   const iconPickerColumn =
     iconPickerColumnId === null
       ? undefined
@@ -289,7 +294,7 @@ export function DataGridConfigurationDialog({
         );
 
   useEffect(() => {
-    apiClientRef.current?.focus();
+    sourceRef.current?.focus();
     const returnFocus = returnFocusRef.current;
     return () => {
       if (returnFocus?.isConnected) returnFocus.focus();
@@ -390,145 +395,138 @@ export function DataGridConfigurationDialog({
               aria-labelledby={`${titleId}-source`}
             >
               <h3 id={`${titleId}-source`}>Data source</h3>
-              <p>Select the operation that provides the rows.</p>
-              <div className="wr-data-grid-configuration-fields three-columns">
+              <p>Choose an API endpoint or a saved RestGo GraphQL query to load rows.</p>
+              <div
+                className={`wr-data-grid-configuration-fields ${graphQL === undefined ? 'four-columns' : 'three-columns'}`}
+              >
                 <label>
                   <span>Data source</span>
                   <select
-                    ref={apiClientRef}
-                    aria-label="Data Grid API Client"
-                    value={graphQL?.sourceId ?? draft.apiClientId ?? ''}
+                    ref={sourceRef}
+                    aria-label="Data Grid data source"
+                    value={graphQL === undefined ? 'api-client' : 'graphql'}
                     onChange={(event) => {
-                      const sourceId = event.currentTarget.value;
-                      const nextQuery = queries[0];
-                      const nextGraphQL = graphQLClients.some((candidate) => candidate.id === sourceId)
-                        ? newGraphQLBinding(sourceId, nextQuery)
-                        : undefined;
-                      updateDraft((current) => {
-                        const listPath = '';
-                        return {
-                          ...current,
-                          apiClientId: nextGraphQL === undefined ? sourceId || null : null,
-                          graphql: nextGraphQL,
-                          operationId: null,
-                          listPath,
-                          columns: reconcileColumnFieldPaths(
-                            current.columns,
-                            comboBoxSchemaChoices(nextGraphQL === undefined ? undefined : nextQuery?.responseSchema, '').fields,
-                          ),
-                        };
-                      });
+                      const useGraphQL = event.currentTarget.value === 'graphql';
+                      updateDraft((current) => ({
+                        ...current,
+                        graphql: useGraphQL ? newGraphQLBinding() : undefined,
+                        operationId: null,
+                        listPath: '',
+                        columns: reconcileColumnFieldPaths(current.columns, []),
+                      }));
                     }}
                   >
-                    <option value="">(select a data source)</option>
+                    <option value="api-client">API Client</option>
+                    <option value="graphql">GraphQL</option>
+                  </select>
+                </label>
+                <label>
+                  <span>API Client</span>
+                  <select
+                    aria-label="Data Grid API Client"
+                    value={sourceId ?? ''}
+                    onChange={(event) => {
+                      const apiClientId = event.currentTarget.value || null;
+                      updateDraft((current) => ({
+                        ...current,
+                        apiClientId,
+                        graphql: current.graphql === undefined ? undefined : newGraphQLBinding(),
+                        operationId: null,
+                        listPath: '',
+                        columns: reconcileColumnFieldPaths(current.columns, []),
+                      }));
+                    }}
+                  >
+                    <option value="">(select an API Client)</option>
+                    {sourceId !== null && apiClient === undefined && (
+                      <option value={sourceId} disabled>
+                        (unavailable API Client)
+                      </option>
+                    )}
                     {apiClients.map((candidate) => (
                       <option key={candidate.id} value={candidate.id}>
                         {candidate.name}
                       </option>
                     ))}
-                    {graphQLClients.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.name} (GraphQL)
-                      </option>
-                    ))}
-                    {graphQL !== undefined && !graphQLClients.some((candidate) => candidate.id === graphQL.sourceId) && (
-                      <option value={graphQL.sourceId} disabled>(unavailable GraphQL component)</option>
-                    )}
                   </select>
                 </label>
-                {graphQL === undefined ? <>
                 <label>
-                  <span>Endpoint</span>
+                  <span>{graphQL === undefined ? 'Operation' : 'Query'}</span>
                   <select
-                    aria-label="Data Grid endpoint"
-                    disabled={apiConfiguration === undefined}
-                    value={draft.operationId ?? ''}
+                    aria-label={graphQL === undefined ? 'Data Grid operation' : 'Data Grid query'}
+                    disabled={apiClient === undefined}
+                    value={
+                      graphQL === undefined
+                        ? apiEndpointOption(draft.operationId)
+                        : graphqlQueryOption(draft.operationId)
+                    }
                     onChange={(event) => {
-                      const operationId = event.currentTarget.value || null;
-                      const nextOperation = apiConfiguration?.operations.find(
-                        (candidate) => candidate.id === operationId,
+                      if (sourceId === null) return;
+                      const value = event.currentTarget.value;
+                      const nextQuery = queries.find(
+                        (candidate) => graphqlQueryOption(candidate.id) === value,
                       );
-                      updateDraft((current) => {
-                        const listPath = '';
-                        return {
-                          ...current,
-                          operationId,
-                          listPath,
-                          columns: reconcileColumnFieldPaths(
-                            current.columns,
-                            operationSchemaChoices(nextOperation?.responseSchema, listPath),
-                          ),
-                        };
-                      });
-                    }}
-                  >
-                    <option value="">(select an endpoint)</option>
-                    {apiConfiguration?.operations.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.name} — {candidate.method} {candidate.path}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Response list</span>
-                  <select
-                    aria-label="Data Grid response list"
-                    disabled={operation === undefined}
-                    value={draft.listPath}
-                    onChange={(event) => {
-                      const listPath = event.currentTarget.value;
+                      const nextEndpoint = endpoints.find(
+                        (candidate) => apiEndpointOption(candidate.id) === value,
+                      );
+                      const fields =
+                        graphQL === undefined
+                          ? operationSchemaChoices(nextEndpoint?.responseSchema, '')
+                          : comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields;
                       updateDraft((current) => ({
                         ...current,
-                        listPath,
-                        columns: reconcileColumnFieldPaths(
-                          current.columns,
-                          operationSchemaChoices(operation?.responseSchema, listPath),
-                        ),
+                        graphql: graphQL === undefined ? undefined : newGraphQLBinding(nextQuery),
+                        operationId: nextQuery?.id ?? nextEndpoint?.id ?? null,
+                        listPath: '',
+                        columns: reconcileColumnFieldPaths(current.columns, fields),
                       }));
                     }}
                   >
-                    {!listChoices.some((choice) => choice.path.length === 0) && (
-                      <option value="">(select a list)</option>
-                    )}
-                    {listChoices.map((choice) => (
-                      <option key={choice.path || 'root'} value={choice.path}>
-                        {choice.label}
-                      </option>
-                    ))}
+                    <ApiClientOperationOptions endpoints={endpoints} queries={queries} />
                   </select>
                 </label>
-                </> : (
+                {graphQL === undefined && (
                   <label>
-                    <span>GraphQL query</span>
+                    <span>Response list</span>
                     <select
-                      aria-label="Data Grid GraphQL query"
-                      value={graphQL.operationId ?? ''}
+                      aria-label="Data Grid response list"
+                      disabled={operation === undefined}
+                      value={draft.listPath}
                       onChange={(event) => {
-                        const id = event.currentTarget.value;
-                        const nextQuery = queries.find((candidate) => candidate.id === id);
+                        const listPath = event.currentTarget.value;
                         updateDraft((current) => ({
                           ...current,
-                          graphql: newGraphQLBinding(graphQL.sourceId, nextQuery),
+                          listPath,
                           columns: reconcileColumnFieldPaths(
                             current.columns,
-                            comboBoxSchemaChoices(nextQuery?.responseSchema, '').fields,
+                            operationSchemaChoices(operation?.responseSchema, listPath),
                           ),
                         }));
                       }}
                     >
-                      <option value="">(select a query)</option>
-                      {queries.map((candidate) => <option value={candidate.id} key={candidate.id}>{candidate.name}</option>)}
+                      {!listChoices.some((choice) => choice.path.length === 0) && (
+                        <option value="">(select a list)</option>
+                      )}
+                      {listChoices.map((choice) => (
+                        <option key={choice.path || 'root'} value={choice.path}>
+                          {choice.label}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 )}
               </div>
-              {graphQL !== undefined && (
+              {graphQL !== undefined && apiConfiguration !== undefined && queries.length === 0 && (
+                <p>Import a saved query in the selected API Client’s GraphQL settings.</p>
+              )}
+              {graphQL !== undefined && draft.operationId !== null && (
                 <DataGridGraphQLSettings
                   binding={graphQL}
                   query={query}
-                  operations={graphQLOperations}
-                  onChange={(patch) => updateDraft((current) => ({ ...current, graphql: { ...graphQL, ...patch } }))}
+                  operations={clientGraphQLOperations}
+                  onChange={(patch) =>
+                    updateDraft((current) => ({ ...current, graphql: { ...graphQL, ...patch } }))
+                  }
                 />
               )}
             </section>

@@ -5,6 +5,24 @@ reusable component code. Monaco completes requests, parameters, and response
 fields from the saved model. `ApiClient1` and `this.ApiClient1` address the same
 instance; local variables with the same name retain normal TypeScript scope.
 
+## Running saved RestGo GraphQL operations
+
+Create a query or mutation in **RestGO > GraphQL**. Open the API Client, select
+the operation under **GraphQL**, and save the client. In page or reusable code,
+invoke it through `ApiClient1.graphql.execute`. Monaco completes the imported
+operation members, parameters, and result fields for that client. Set a
+parameter before execution by assigning it on the operation.
+
+```ts
+const { graphql } = ApiClient1;
+const customers = graphql.operation.ListCustomers;
+customers.parameter.name = SearchEdit.value;
+const { rows } = await graphql.execute(customers);
+```
+
+Data Grid and ComboBox can select a saved query from the same API Client.
+See [RestGo GraphQL in WebRAD](restgo-graphql.md) for binding, pagination, and editing.
+
 ## Diagnosing request failures
 
 When a browser fetch fails, the tester and runtime report the original error,
