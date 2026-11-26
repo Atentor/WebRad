@@ -4,20 +4,60 @@ import type {
   WebDataGridPendingChange,
 } from './data-grid-graphql.js';
 import { formatDataGridLabel, type ResolvedDataGridLabels } from './data-grid-labels.js';
+import { createLucideIconElement, type LucideIconName } from './icon.js';
 import type { WebGraphQLParameter, WebGraphQLRow, WebGraphQLValue } from './graphql.js';
 
-export function gridAction(
+const actionIcons = {
+  insert: 'plus',
+  edit: 'pencil',
+  delete: 'trash',
+  undo: 'undo',
+  save: 'save',
+  discard: 'x',
+  retry: 'refresh-cw',
+  previous: 'chevron-left',
+  next: 'chevron-right',
+  'cancel-editor': 'x',
+  apply: 'check',
+} as const satisfies Record<string, LucideIconName>;
+
+function createGridAction(
   document: Document,
-  action: string,
+  action: keyof typeof actionIcons,
   label: string,
-  run: () => void,
-  disabled = false,
+  row?: string,
 ): HTMLButtonElement {
   const button = document.createElement('button');
   button.className = 'wr-data-grid-graphql-action';
   button.type = 'button';
-  button.textContent = label;
-  button.dataset.webradGridAction = action;
+  button.dir = 'auto';
+  button.dataset.webradGridAction = row === undefined ? action : `${action}-${row}`;
+  button.dataset.kind = action;
+  if (action === 'insert' || action === 'edit') button.setAttribute('aria-haspopup', 'dialog');
+  button.append(createLucideIconElement(document, actionIcons[action]));
+  if (row === undefined) {
+    button.append(label);
+  } else {
+    button.classList.add('wr-data-grid-graphql-icon-only');
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    const caption = document.createElement('span');
+    caption.className = 'wr-data-grid-graphql-action-label';
+    caption.textContent = label;
+    button.append(caption);
+  }
+  return button;
+}
+
+export function gridAction(
+  document: Document,
+  action: keyof typeof actionIcons,
+  label: string,
+  run: () => void,
+  disabled = false,
+  row?: string,
+): HTMLButtonElement {
+  const button = createGridAction(document, action, label, row);
   button.disabled = disabled;
   button.addEventListener('click', run);
   return button;
@@ -66,16 +106,23 @@ export function graphQLGridTools(
   status.className = 'wr-data-grid-graphql-status';
   status.setAttribute('role', 'status');
   const error = errorText(grid, labels);
-  status.textContent =
-    error ||
-    (grid.saving
-      ? labels.saving
+  const state = grid.saving
+    ? 'saving'
+    : error
+      ? 'error'
       : grid.loading
-        ? labels.loading
+        ? 'loading'
         : grid.hasChanges
-          ? labels.unsaved
-          : '');
-  status.dataset.error = String(error.length > 0);
+          ? 'draft'
+          : 'idle';
+  status.dataset.state = state;
+  status.textContent = {
+    error,
+    saving: labels.saving,
+    loading: labels.loading,
+    draft: labels.unsaved,
+    idle: '',
+  }[state];
   tools.append(status);
   if (grid.queryError !== undefined) {
     tools.append(
@@ -271,7 +318,16 @@ export function openGraphQLGridEditor(
   const form = document.createElement('form');
   const heading = document.createElement('h2');
   heading.textContent = title;
-  form.append(heading);
+  const header = document.createElement('header');
+  header.className = 'wr-data-grid-graphql-editor-header';
+  const icon = createLucideIconElement(document, kind === 'insert' ? 'plus' : 'pencil');
+  header.append(icon, heading);
+  const body = document.createElement('div');
+  body.className = 'wr-data-grid-graphql-editor-fields';
+  const feedback = document.createElement('p');
+  feedback.setAttribute('role', 'alert');
+  let invalidControl: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | null = null;
+  form.append(header, body);
   const fields = operation.parameters.flatMap((parameter) => {
     if (parameter.source.role !== 'input') return [];
     const current = grid.inputValue(operation, parameter, row, draft);
@@ -283,31 +339,46 @@ export function openGraphQLGridEditor(
     const field = { parameter, control, text, changed: false };
     const changed = (): void => {
       field.changed = true;
+      control.removeAttribute('aria-invalid');
+      if (invalidControl === null || invalidControl === control) {
+        invalidControl = null;
+        feedback.textContent = '';
+      }
     };
     control.addEventListener('input', changed);
     control.addEventListener('change', changed);
     label.append(caption, control);
-    form.append(label);
+    body.append(label);
     return [field];
   });
-  const feedback = document.createElement('p');
-  feedback.setAttribute('role', 'alert');
+  const firstField = fields[0];
+  if (firstField !== undefined) firstField.control.autofocus = true;
+  const footer = document.createElement('footer');
+  footer.className = 'wr-data-grid-graphql-editor-footer';
   const actions = document.createElement('div');
   actions.className = 'wr-data-grid-graphql-editor-actions';
   const cancel = gridAction(document, 'cancel-editor', labels.cancel, () => dialog.close());
-  const apply = document.createElement('button');
+  const apply = createGridAction(document, 'apply', labels.apply);
   apply.type = 'submit';
-  apply.className = 'wr-data-grid-graphql-action';
-  apply.textContent = labels.apply;
   actions.append(cancel, apply);
-  form.append(feedback, actions);
+  footer.append(feedback, actions);
+  form.append(footer);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     try {
       const values = Object.fromEntries(
-        fields.flatMap(({ parameter, control, text, changed }) =>
-          changed ? [[parameter.name, readInput(parameter, control.value, text, labels)]] : [],
-        ),
+        fields.flatMap(({ parameter, control, text, changed }) => {
+          if (!changed) return [];
+          try {
+            return [[parameter.name, readInput(parameter, control.value, text, labels)]] as const;
+          } catch (reason: unknown) {
+            invalidControl?.removeAttribute('aria-invalid');
+            invalidControl = control;
+            control.setAttribute('aria-invalid', 'true');
+            control.focus();
+            throw reason;
+          }
+        }),
       );
       grid.stage(kind, row, values, draft?.id);
       dialog.close();

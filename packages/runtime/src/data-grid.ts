@@ -429,6 +429,11 @@ function appendGridCell(
   return cell;
 }
 
+interface DataGridBooleanCellInteraction {
+  readonly enabled: boolean;
+  readonly change: (value: boolean) => void;
+}
+
 function dataCell(
   document: Document,
   column: WebDataGridColumn,
@@ -437,6 +442,7 @@ function dataCell(
   columnIndex: number,
   onCellClick: () => void,
   toggles: WebToggle[],
+  booleanInteraction?: DataGridBooleanCellInteraction,
 ): HTMLDivElement {
   const cell = document.createElement('div');
   cell.className = 'wr-data-grid-cell';
@@ -483,8 +489,7 @@ function dataCell(
       const element = document.createElement('button');
       element.className = 'wr-component wr-webtoggle wr-data-grid-toggle';
       element.setAttribute('aria-label', column.header || 'Toggle');
-      element.setAttribute('aria-readonly', 'true');
-      element.tabIndex = -1;
+      element.tabIndex = 0;
       for (const name of ['track', 'thumb']) {
         const part = document.createElement('span');
         part.className = 'wr-toggle-' + name;
@@ -493,8 +498,11 @@ function dataCell(
       }
       const toggle = new WebToggle(element);
       toggle.checked = cellBoolean(value);
-      toggle.enabled = false;
+      toggle.enabled = booleanInteraction?.enabled ?? true;
       toggles.push(toggle);
+      if (booleanInteraction !== undefined) {
+        element.addEventListener('change', () => booleanInteraction.change(toggle.checked));
+      }
       cell.append(element);
       break;
     }
@@ -505,7 +513,10 @@ function dataCell(
       checkbox.className = 'wr-data-grid-checkbox';
       checkbox.type = 'checkbox';
       checkbox.checked = cellBoolean(value);
-      checkbox.disabled = true;
+      if (booleanInteraction !== undefined) {
+        checkbox.disabled = !booleanInteraction.enabled;
+        checkbox.addEventListener('change', () => booleanInteraction.change(checkbox.checked));
+      }
       checkbox.setAttribute(
         'aria-label',
         column.fixedCaption.length > 0 ? column.fixedCaption : column.header,
@@ -783,23 +794,21 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     return this.#apiClient.getList<unknown>(operation.name, listPath);
   }
 
-  #restoreGridAction(action: string): void {
+  #restoreGridAction(action: string, preventScroll = true): void {
     const candidates = [...this.element.querySelectorAll<HTMLElement>('[data-webrad-grid-action]')];
     const control = candidates.find((candidate) => candidate.dataset.webradGridAction === action);
     if (control instanceof HTMLButtonElement && control.disabled) {
       candidates
         .find((candidate) => candidate.dataset.webradGridAction === 'page-summary')
-        ?.focus({ preventScroll: true });
+        ?.focus({ preventScroll });
       return;
     }
-    control?.focus({ preventScroll: true });
+    control?.focus({ preventScroll });
   }
 
-  #openGraphQLGridEditor(kind: 'insert' | 'update', record?: DataGridGraphQLRow): void {
+  #openGraphQLGridEditor(kind: 'insert' | 'update', action: string, record?: DataGridGraphQLRow): void {
     if (this.#graphqlEditor !== null) return;
     const document = this.element.ownerDocument;
-    const target = document.activeElement;
-    const action = target instanceof HTMLElement ? target.dataset.webradGridAction : undefined;
     const dialog = openGraphQLGridEditor(
       document,
       this.#graphql,
@@ -812,7 +821,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       },
       () => {
         this.#graphqlEditor = null;
-        if (action !== undefined && !this.#disposed) this.#restoreGridAction(action);
+        if (!this.#disposed) this.#restoreGridAction(action, false);
       },
     );
     if (dialog !== null) this.#graphqlEditor = { dialog, generation: this.#graphql.generation };
@@ -832,6 +841,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     const suffix = String(rowIndex + 1);
     if (draft !== null) {
       const state = document.createElement('span');
+      state.dataset.state = draft.outcome === 'uncertain' ? 'review' : draft.kind;
       state.className = 'wr-data-grid-graphql-draft';
       state.textContent =
         draft.outcome === 'uncertain'
@@ -843,10 +853,11 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.append(
         gridAction(
           document,
-          `undo-${suffix}`,
+          'undo',
           labels.undo,
           () => this.#graphql.cancelChanges(draft.id),
           this.#graphql.saving,
+          suffix,
         ),
       );
     }
@@ -859,10 +870,11 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.append(
         gridAction(
           document,
-          `edit-${suffix}`,
+          'edit',
           labels.edit,
-          () => this.#openGraphQLGridEditor(kind, record),
+          () => this.#openGraphQLGridEditor(kind, `edit-${suffix}`, record),
           this.#graphql.saving,
+          suffix,
         ),
       );
     }
@@ -876,7 +888,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.append(
         gridAction(
           document,
-          `delete-${suffix}`,
+          'delete',
           labels.delete,
           () => {
             try {
@@ -886,10 +898,59 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
             }
           },
           this.#graphql.saving,
+          suffix,
         ),
       );
     }
     return cell;
+  }
+
+  #graphQLBooleanCellInteraction(
+    record: DataGridGraphQLRow,
+    column: WebDataGridColumn,
+    rowIndex: number,
+  ): DataGridBooleanCellInteraction {
+    const kind = record.original === null ? 'insert' : 'update';
+    const operation = this.#graphql.mutation(kind, record.original);
+    const parameter = operation?.parameters.find(
+      (candidate) =>
+        candidate.kind === 'boolean' &&
+        candidate.source.role === 'input' &&
+        candidate.source.fieldPath === column.fieldPath,
+    );
+    const enabled =
+      !this.#graphql.saving &&
+      record.draft?.kind !== 'delete' &&
+      record.draft?.outcome !== 'uncertain' &&
+      parameter !== undefined;
+    return {
+      enabled,
+      change: (value) => {
+        if (!enabled || parameter === undefined) return;
+        try {
+          this.#graphql.stage(
+            kind,
+            record.original,
+            { [parameter.name]: value },
+            record.draft?.id,
+          );
+        } catch (reason: unknown) {
+          this.#graphql.showDraftError(reason);
+          return;
+        }
+        const renderedRow = this.element
+          .querySelectorAll<HTMLDivElement>('.wr-data-grid-body-row')
+          .item(rowIndex);
+        const renderedCell = [...(renderedRow?.children ?? [])].find(
+          (candidate) =>
+            candidate instanceof HTMLElement &&
+            candidate.dataset.webradDataGridColumn === column.id,
+        );
+        renderedCell
+          ?.querySelector<HTMLElement>('.wr-data-grid-checkbox, .wr-data-grid-toggle')
+          ?.focus({ preventScroll: true });
+      },
+    };
   }
 
   #render(): void {
@@ -1022,6 +1083,11 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
         if (!replaced && column.cellKind === 'button' && column.fixedCaption.length > 0) {
           displayValue = column.fixedCaption;
         }
+        const booleanInteraction =
+          graphQLRow !== undefined &&
+          (column.cellKind === 'checkbox' || column.cellKind === 'toggle')
+            ? this.#graphQLBooleanCellInteraction(graphQLRow, column, rowIndex)
+            : undefined;
         row.append(
           dataCell(
             document,
@@ -1041,6 +1107,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
               } satisfies WebDataGridCellEventDetail);
             },
             this.#toggles,
+            booleanInteraction,
           ),
         );
       }
@@ -1112,7 +1179,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
           this.#graphql,
           this.#labels,
           configuration.showSaveButton === true,
-          () => this.#openGraphQLGridEditor('insert'),
+          () => this.#openGraphQLGridEditor('insert', 'insert'),
         ),
       );
     } else {

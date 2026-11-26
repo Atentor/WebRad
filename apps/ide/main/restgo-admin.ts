@@ -207,6 +207,7 @@ export class RestGoAdminService {
         headers: {
           Authorization: token,
           Accept: 'application/json',
+          ...(options.detail === 'schema' ? { 'Cache-Control': 'no-cache' } : {}),
           ...(options.body === undefined ? {} : { 'Content-Type': 'application/json' }),
         },
         ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),

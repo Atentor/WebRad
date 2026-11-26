@@ -1,5 +1,17 @@
 # WebRAD delivery plan
 
+## Data Grid action feedback
+
+The GraphQL editor uses a themed header, scrollable fields, and a distinct
+primary action with a clear, animated hover state and larger icons throughout
+the DataGrid using the shared Lucide renderer. It focuses the first field,
+marks invalid values, and restores focus to the grid action on close. Row
+actions display only accessible icons, without the Rascunho badge; the grid
+toolbar still reports unsaved changes and save progress. The existing compiled
+Electron flow exercises these states and direct checkbox/toggle activation,
+which stages an edit through the same GraphQL draft events as the editor.
+Validation was not requested or run.
+
 ## Data Grid label language
 
 The Labels tab offers Portuguese, English, Spanish, and Custom. The project

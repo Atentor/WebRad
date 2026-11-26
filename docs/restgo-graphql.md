@@ -4,7 +4,7 @@
 
 1. Enable the project's RestGO integration in **RestGO > Connection**. Connect the IDE to the same RestGo instance for administrative schema discovery.
 2. Open **RestGO > GraphQL** and choose an already published database. Manage GraphQL activation, table and column permissions, and user access in RestGo. [RestGo GraphQL documentation](https://restgo.atentor.com/docs/graphql)
-3. Click **New**, select a table, and give the endpoint a name such as **Customers**. The table name is suggested automatically. Enable **Query** and **Insert**, for example, to read and add records through the same endpoint. Actions unavailable in the published schema are disabled.
+3. Click **New**, select a table, and give the endpoint a name such as **Customers**. The table name is suggested automatically. Enable **Query** and **Insert**, for example, to read and add records through the same endpoint. Actions unavailable in the published schema are disabled. After changing a table or its columns in RestGo, click **Refresh** to reload the available fields.
 4. Switch between the enabled actions to configure their fields and parameters. WebRAD generates the names used by code, such as `Customers_query` and `Customers_insert`. For **Insert** and **Update**, choose the fields to write. For **Update** and **Delete**, add a condition that identifies the record.
 5. Click **Save endpoint**, then save the WebRAD project. Reopen the endpoint to rename it or change its actions. Clear bindings to an action before removing it. Clear the endpoint selection from its clients before removing the endpoint.
 
@@ -14,7 +14,8 @@ Under **Field display names**, enter a label such as **Full name** for the
 field `nome`. The endpoint shares these labels across its actions. The Data
 Grid uses them for writable fields in its add and edit dialogs. A blank label
 uses the original field name. A field label set in the grid's **Labels** tab
-takes precedence for that grid.
+takes precedence for that grid. All fields currently available in the published
+table are listed, including fields not yet selected for an operation.
 
 The project assigns one endpoint to each database and table pair. Its actions share an optional display name in the manifest. Older definitions use the table name until saved with an endpoint name. Each action retains its ID, generated operation name, document, and response schema. Renaming the endpoint preserves existing code and bindings. Preview and Build use the saved action contracts. The browser sends requests to `POST /gql/{slug}` with the signed-in application's user session. The IDE's administrative connection stays in the Electron main process.
 
@@ -124,11 +125,16 @@ Configure the grid against a query and enable **CRUD** in the Inspector. Choose 
 
 The grid opens an editor for the mutation parameters or stages a delete. The
 staged changes appear in `pendingChanges` and can be discarded with
-`CancelChanges()`. In **Labels > Record actions**, enable **Show a Save
-button when there are drafts** to let users send the pending changes from the
-grid. **Apply** stages the editor values locally. To save from a
-separate button, call `await DataGrid1.SaveChanges()` in its click handler.
-To save immediately after an edit, call the same method from **OnChangesChanged**.
+`CancelChanges()`. A checkbox or toggle bound to a Boolean mutation input can
+also stage that field directly, using the same `OnChangesChanged` and
+`SaveChanges` flow as applying the editor. In **Labels > Record actions**,
+enable **Show a Save button when there are drafts** to let users send the
+pending changes from the grid. **Apply** stages the editor values locally. The
+grid marks the edited row as a draft and shows the unsaved status. During a
+save, the grid shows progress and disables actions that would change the draft.
+To save from a separate button, call `await DataGrid1.SaveChanges()` in its
+click handler. To save immediately after an edit, call the same method from
+**OnChangesChanged**.
 
 In **Labels > Language**, choose **Português**, **English**, or **Español** for
 the grid's GraphQL controls, or choose **Custom** to edit their captions.

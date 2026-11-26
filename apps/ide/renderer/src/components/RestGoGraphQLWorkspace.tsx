@@ -89,21 +89,6 @@ export function RestGoGraphQLWorkspace({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const enabled = GRAPHQL_ACTIONS.flatMap((kind) => draft?.actions[kind] ?? []);
-  const labelFields = [
-    ...new Set(
-      enabled.flatMap(({ spec }) => [
-        ...spec.selectionPaths.filter((path) => !path.includes('.')),
-        ...spec.inputs.map(({ field }) => field),
-      ]),
-    ),
-  ];
-  const dirty =
-    draft !== null &&
-    (baseline === null ||
-      draft.name.trim() !== baseline.name ||
-      JSON.stringify(draft.fieldLabels) !== JSON.stringify(baseline.fieldLabels) ||
-      JSON.stringify(enabled) !==
-        JSON.stringify(GRAPHQL_ACTIONS.flatMap((kind) => baseline.actions[kind] ?? [])));
   const database = databases.find((item) => item.slug === draft?.database);
   const databaseId = database?.id;
   const currentSchemaState =
@@ -121,6 +106,30 @@ export function RestGoGraphQLWorkspace({
       return { tables: undefined, schemaError: restGoErrorMessage(reason) };
     }
   }, [schema]);
+  const tableChoices = draft ? tables?.get(draft.table) : undefined;
+  const labelFields = [
+    ...new Set([
+      ...enabled.flatMap(({ spec }) => [
+        ...spec.selectionPaths.filter((path) => !path.includes('.')),
+        ...spec.inputs.map(({ field }) => field),
+      ]),
+      ...GRAPHQL_ACTIONS.flatMap((kind) =>
+        (tableChoices?.[kind] ?? []).flatMap(({ selection, inputs }) => [
+          ...selection
+            .filter(({ path }) => !path.includes('.'))
+            .map(({ path }) => path),
+          ...inputs.map(({ field }) => field),
+        ]),
+      ),
+    ]),
+  ];
+  const dirty =
+    draft !== null &&
+    (baseline === null ||
+      draft.name.trim() !== baseline.name ||
+      JSON.stringify(draft.fieldLabels) !== JSON.stringify(baseline.fieldLabels) ||
+      JSON.stringify(enabled) !==
+        JSON.stringify(GRAPHQL_ACTIONS.flatMap((kind) => baseline.actions[kind] ?? [])));
   const savedEndpoints = useMemo(() => groupGraphQLEndpoints(operations), [operations]);
   const searchText = search.trim().toLowerCase();
   const visibleEndpoints = savedEndpoints.filter((entry) =>
@@ -131,7 +140,6 @@ export function RestGoGraphQLWorkspace({
       ...entry.operations.flatMap((operation) => [operation.name, KINDS[operation.spec.kind]]),
     ].some((value) => value.toLowerCase().includes(searchText)),
   );
-  const tableChoices = draft ? tables?.get(draft.table) : undefined;
   const configuredTables = new Set(
     savedEndpoints
       .filter(({ database }) => database === draft?.database)

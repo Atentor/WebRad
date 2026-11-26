@@ -22,14 +22,18 @@ Keep the existing configuration and binding pass markers in both runners.
 The configuration smoke switches label languages and checks the navigation and
 Add captions. It reopens the dialog after Save and Cancel to verify the
 selection and custom captions. The compiled GraphQL fixture checks custom
-pagination, editor, and draft action labels. It exercises both explicit save
-paths and verifies that each writes only the intended record.
+pagination, editor, and draft action labels. It checks the editor's primary
+action, first-field focus, focus restoration on Cancel, and feedback for draft
+and saving states. It exercises both explicit save paths and verifies that each
+writes only the intended record.
 
 The GraphQL binding smoke reopens the client after binding a Data Grid and a
 ComboBox. The selected endpoint is protected while either control uses it and
 can be cleared after the bindings are removed. The compiled fixture checks
 published cursors with and without matching grid history, including the page
-summary and the Previous action.
+summary and the Previous action. It also checks that direct checkbox and
+toggle activation stages the same GraphQL draft as the edit dialog, emits the
+change event, and can be undone to restore the source values.
 
 ## Ubuntu packaged workbench resize on v0.0.40 (2026-11-20)
 

@@ -57,10 +57,28 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
           nullable: false,
           children: [],
         },
+        {
+          id: 'row-active',
+          name: 'active',
+          path: '/*/active',
+          kind: 'field',
+          fieldType: 'boolean',
+          nullable: false,
+          children: [],
+        },
+        {
+          id: 'row-featured',
+          name: 'featured',
+          path: '/*/featured',
+          kind: 'field',
+          fieldType: 'boolean',
+          nullable: false,
+          children: [],
+        },
       ],
     },
   };
-  const selectionPaths = ['id', 'name'];
+  const selectionPaths = ['id', 'name', 'active', 'featured'];
   const database = 'demo';
   const table = 'customers';
   const fieldLabels = { '/name': 'Endpoint customer name' };
@@ -102,7 +120,7 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
         ],
         pagination: { defaultSize: 1, maxSize: 20 },
         document:
-          'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor, $customerId: Int) { customersCollection(first: $_wrFirst, after: $_wrAfter, filter: { id: { eq: $customerId } }) { edges { node { id name } } pageInfo { endCursor hasNextPage } totalCount } }',
+          'query GridCustomers($_wrFirst: Int, $_wrAfter: Cursor, $customerId: Int) { customersCollection(first: $_wrFirst, after: $_wrAfter, filter: { id: { eq: $customerId } }) { edges { node { id name active featured } } pageInfo { endCursor hasNextPage } totalCount } }',
       },
       responseSchema,
     },
@@ -118,7 +136,11 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
           logic: 'and',
           items: [{ field: 'id', operator: 'eq', parameter: 'customerId', required: true }],
         },
-        inputs: [{ field: 'name', parameter: 'customerName', required: true }],
+        inputs: [
+          { field: 'name', parameter: 'customerName', required: true },
+          { field: 'active', parameter: 'active', required: false },
+          { field: 'featured', parameter: 'featured', required: false },
+        ],
       },
       runtime: {
         ...mutation,
@@ -144,9 +166,25 @@ function smokeGraphQLOperations(): readonly ProjectGraphQLOperation[] {
             enumValues: [],
             source: { role: 'input', fieldPath: '/name' },
           },
+          {
+            name: 'active',
+            type: 'Boolean',
+            kind: 'boolean',
+            required: false,
+            enumValues: [],
+            source: { role: 'input', fieldPath: '/active' },
+          },
+          {
+            name: 'featured',
+            type: 'Boolean',
+            kind: 'boolean',
+            required: false,
+            enumValues: [],
+            source: { role: 'input', fieldPath: '/featured' },
+          },
         ],
         document:
-          'mutation UpdateGridCustomer($customerId: Int!, $customerName: String!) { updatecustomersCollection(filter: { id: { eq: $customerId } }, set: { name: $customerName }, atMost: 1) { affectedCount records { id name } } }',
+          'mutation UpdateGridCustomer($customerId: Int!, $customerName: String!, $active: Boolean, $featured: Boolean) { updatecustomersCollection(filter: { id: { eq: $customerId } }, set: { name: $customerName, active: $active, featured: $featured }, atMost: 1) { affectedCount records { id name active featured } } }',
       },
       responseSchema,
     },
@@ -186,6 +224,41 @@ async function rendererReady(window: BrowserWindow, expression: string): Promise
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`RestGO settings smoke timed out: ${expression}`);
+}
+
+const gridApplySelector = '.wr-data-grid-graphql-editor[open] [data-webrad-grid-action="apply"]';
+
+async function hoverGridApply(window: BrowserWindow): Promise<void> {
+  const selector = JSON.stringify(gridApplySelector);
+  await rendererReady(window, `document.querySelector(${selector}) !== null`);
+  const position: unknown = await window.webContents.executeJavaScript(
+    `(() => {
+      const bounds = document.querySelector(${selector}).getBoundingClientRect();
+      return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 };
+    })()`,
+    true,
+  );
+  if (
+    typeof position !== 'object' ||
+    position === null ||
+    !('x' in position) ||
+    !('y' in position) ||
+    typeof position.x !== 'number' ||
+    typeof position.y !== 'number'
+  ) {
+    throw new Error('Grid Apply button geometry is unavailable.');
+  }
+  const { debugger: devTools } = window.webContents;
+  devTools.attach('1.3');
+  try {
+    await devTools.sendCommand('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: position.x,
+      y: position.y,
+    });
+  } finally {
+    if (devTools.isAttached()) devTools.detach();
+  }
 }
 
 async function click(window: BrowserWindow, selector: string): Promise<void> {
@@ -697,8 +770,8 @@ export async function runRestGoBrowserSmoke(
   const paymentNavigations: string[] = [];
   const paymentHistoryCursors: string[] = [];
   const graphQLRows = [
-    { id: 1, name: 'Grid Alpha' },
-    { id: 2, name: 'Grid Beta' },
+    { id: 1, name: 'Grid Alpha', active: true, featured: false },
+    { id: 2, name: 'Grid Beta', active: false, featured: true },
   ];
   const graphQLMutations: { readonly rowId: unknown; readonly name: unknown }[] = [];
   const historicalPaymentId = '00000000-0000-4000-8000-000000000009';
@@ -1276,7 +1349,9 @@ export async function runRestGoBrowserSmoke(
           },
           columns: gridConfiguration.columns.map((column, index) => ({
             ...column,
-            fieldPath: index === 0 ? '/name' : '',
+            header: ['Customer', 'Active', 'Featured'][index] ?? column.header,
+            fieldPath: ['/name', '/active', '/featured'][index] ?? '',
+            cellKind: (['text', 'checkbox', 'toggle'] as const)[index] ?? 'text',
           })),
         },
       },
@@ -1551,7 +1626,7 @@ export class index extends indexGenerated {
     })()`;
     await window.webContents.executeJavaScript(verifyAnonymousToken, true);
 
-    const evidence: unknown = await window.webContents.executeJavaScript(
+    const evidencePromise: Promise<unknown> = window.webContents.executeJavaScript(
       `(async () => {
         const check = (result) => { if (result.error) throw new Error(result.error.message); return result.data; };
         if (document.querySelector('[data-restgo-identity="true"]') === null) throw new Error('Native client identity failed');
@@ -1572,6 +1647,33 @@ export class index extends indexGenerated {
           if (!condition()) throw new Error(message);
         };
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
+        const activeCheckbox = grid.querySelector('.wr-data-grid-checkbox');
+        const featuredToggle = grid.querySelector('.wr-data-grid-toggle');
+        if (!(activeCheckbox instanceof HTMLInputElement) || activeCheckbox.disabled ||
+            !(featuredToggle instanceof HTMLButtonElement) || featuredToggle.disabled ||
+            featuredToggle.tabIndex < 0 || featuredToggle.getAttribute('aria-disabled') === 'true' ||
+            featuredToggle.hasAttribute('aria-readonly') ||
+            getComputedStyle(featuredToggle).pointerEvents === 'none') {
+          throw new Error('Data Grid boolean cells were not enabled for direct interaction');
+        }
+        activeCheckbox.click();
+        await waitForGrid(() => page.dataset.graphQlDraftCount === '1' &&
+          grid.querySelector('.wr-data-grid-checkbox')?.checked === false,
+        'Direct checkbox activation did not stage a GraphQL edit');
+        const editableToggle = grid.querySelector('.wr-data-grid-toggle');
+        if (!(editableToggle instanceof HTMLButtonElement) || editableToggle.disabled) {
+          throw new Error('The GraphQL toggle was not available after staging the checkbox edit');
+        }
+        editableToggle.click();
+        await waitForGrid(() => page.dataset.graphQlDraftCount === '1' &&
+          grid.querySelector('.wr-data-grid-checkbox')?.checked === false &&
+          grid.querySelector('.wr-data-grid-toggle')?.getAttribute('aria-checked') === 'true',
+        'Direct toggle activation did not stage through the existing GraphQL draft');
+        gridAction('undo-1').click();
+        await waitForGrid(() => page.dataset.graphQlDraftCount === '0' &&
+          grid.querySelector('.wr-data-grid-checkbox')?.checked === true &&
+          grid.querySelector('.wr-data-grid-toggle')?.getAttribute('aria-checked') === 'false',
+        'Undo did not restore the source values after direct boolean edits');
         if (page.dataset.graphQlClientEvent !== 'true') throw new Error('GraphQL Client success event did not fire');
         await waitForGrid(() => combo?.options[0]?.value === '1' && combo.options[0].textContent === 'Grid Alpha', 'GraphQL ComboBox did not map the option key and label');
         if (gridAction('previous').disabled !== true || gridAction('page-size').value !== '1') throw new Error('GraphQL Data Grid initial pager mismatch');
@@ -1618,6 +1720,50 @@ export class index extends indexGenerated {
         gridAction('previous').click();
         await waitForGrid(() => gridCell() === 'Grid Alpha' && pageSummary().startsWith('Results page 1') &&
           gridAction('previous').disabled === true, 'The unknown cursor did not return to the first page');
+        const hasLargeGridIcon = (icon) => icon !== null && icon !== undefined &&
+          icon.classList.contains('wr-icon-graphic') &&
+          Number.parseFloat(getComputedStyle(icon).width) >=
+            Number.parseFloat(getComputedStyle(icon.parentElement).fontSize) * 1.35;
+        const editButton = gridAction('edit-1');
+        const editIcon = editButton?.querySelector('svg');
+        const editCaption = editButton?.querySelector('.wr-data-grid-graphql-action-label');
+        const pagerIcon = gridAction('previous')?.querySelector('svg');
+        if (!hasLargeGridIcon(editIcon) || !hasLargeGridIcon(pagerIcon) || !editCaption ||
+            getComputedStyle(editCaption).display !== 'none' ||
+            editButton.getAttribute('aria-label') !== editCaption.textContent ||
+            editButton.title !== editCaption.textContent) {
+          throw new Error('The Data Grid Edit action was not an accessible icon-only button');
+        }
+        const gridStatus = () => grid.querySelector('.wr-data-grid-graphql-status');
+        gridAction('edit-1').click();
+        const cancelEditor = document.querySelector('.wr-data-grid-graphql-editor[open]');
+        const cancelButton = cancelEditor?.querySelector('[data-webrad-grid-action="cancel-editor"]');
+        const cancelIcon = cancelButton?.querySelector('svg');
+        const headerIcon = cancelEditor?.querySelector('.wr-data-grid-graphql-editor-header > svg');
+        const applyIcon = cancelEditor?.querySelector('[data-webrad-grid-action="apply"] > svg');
+        if (document.activeElement !== cancelEditor?.querySelector('input') ||
+            !cancelIcon?.matches('[aria-hidden="true"]') ||
+            !hasLargeGridIcon(cancelIcon) || !headerIcon ||
+            !headerIcon.classList.contains('wr-icon-graphic') ||
+            Number.parseFloat(getComputedStyle(headerIcon).width) < 44 ||
+            !hasLargeGridIcon(applyIcon)) {
+          throw new Error('The grid editor did not focus its first field or render its enlarged icons');
+        }
+        const hoveredApply = document.querySelector(${JSON.stringify(gridApplySelector)});
+        await waitForGrid(() => hoveredApply.matches(':hover'), 'The pointer did not reach Grid Apply');
+        const expectedHover = document.createElement('span');
+        expectedHover.style.backgroundColor = 'var(--wr-theme-primary-hover, #1d4ed8)';
+        hoveredApply.parentElement.append(expectedHover);
+        const expectedBackground = getComputedStyle(expectedHover).backgroundColor;
+        expectedHover.remove();
+        const hoverStyle = getComputedStyle(hoveredApply);
+        if (hoverStyle.backgroundColor !== expectedBackground) {
+          throw new Error('Grid Apply hover used ' + hoverStyle.backgroundColor + ' instead of ' + expectedBackground);
+        }
+        cancelButton.click();
+        await waitForGrid(() => document.activeElement === gridAction('edit-1') &&
+          !document.querySelector('.wr-data-grid-graphql-editor'), 'Cancel did not restore focus to Edit');
+        if (grid.querySelector('[data-webrad-grid-draft]')) throw new Error('Cancel staged a grid edit');
         const stageGridEdit = (value, current = 'Grid Alpha', fieldLabel = 'Customer name') => {
           const lastSave = page.dataset.graphQlSaved;
           if (gridAction('edit-1').textContent !== 'Change customer') throw new Error('Grid edit caption was not applied');
@@ -1632,10 +1778,26 @@ export class index extends indexGenerated {
           }
           input.value = value;
           input.dispatchEvent(new Event('input', { bubbles: true }));
-          editor.querySelector('form').requestSubmit();
+          const applyButton = editor.querySelector('button[data-webrad-grid-action="apply"]');
+          const cancel = editor.querySelector('button[data-webrad-grid-action="cancel-editor"]');
+          const primaryStyle = getComputedStyle(applyButton);
+          if (!applyButton.querySelector('svg[aria-hidden="true"]') ||
+              primaryStyle.backgroundColor === getComputedStyle(cancel).backgroundColor) {
+            throw new Error('Apply did not render as the primary grid action');
+          }
+          applyButton.click();
           if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaved !== lastSave) throw new Error('Editing did not remain a local grid draft');
         };
         stageGridEdit('Discarded Grid Draft');
+        const draftStatus = grid.querySelector('.wr-data-grid-graphql-draft');
+        const undoButton = gridAction('undo-1');
+        const undoCaption = undoButton?.querySelector('.wr-data-grid-graphql-action-label');
+        if (gridStatus()?.dataset.state !== 'draft' || !draftStatus ||
+            getComputedStyle(draftStatus).display !== 'none' || !undoCaption ||
+            getComputedStyle(undoCaption).display !== 'none' ||
+            undoButton.getAttribute('aria-label') !== undoCaption.textContent) {
+          throw new Error('Draft feedback was visible or the Undo action was not icon-only');
+        }
         if (gridAction('undo-1').textContent !== 'Undo customer edit' || gridAction('discard').textContent !== 'Discard customer edits') {
           throw new Error('Grid draft actions did not use their custom captions');
         }
@@ -1653,6 +1815,9 @@ export class index extends indexGenerated {
         const saveAction = gridAction('save');
         if (saveAction?.textContent !== 'Save customer edits') throw new Error('Grid save caption was not applied');
         saveAction.click();
+        if (!gridAction('save')?.disabled || gridStatus()?.dataset.state !== 'saving') {
+          throw new Error('Grid Save did not show in-progress feedback');
+        }
         await waitForGrid(() => gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again', 'The grid button did not save its draft');
         document.querySelector('[data-payments-exercise="true"]').click();
         const paymentsDeadline = Date.now() + 5000;
@@ -1690,6 +1855,7 @@ export class index extends indexGenerated {
       })()`,
       true,
     );
+    const [evidence]: [unknown, void] = await Promise.all([evidencePromise, hoverGridApply(window)]);
     if (
       typeof evidence !== 'object' ||
       evidence === null ||
@@ -1718,7 +1884,7 @@ export class index extends indexGenerated {
     )
       throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
     log(
-      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution from a grouped endpoint, Data Grid and ComboBox bindings, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, endpoint field labels with grid overrides, configured captions, and explicit saves from page code and the grid button; HTTP fixture',
+      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution from a grouped endpoint, Data Grid and ComboBox bindings, direct checkbox and toggle interaction, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, endpoint field labels with grid overrides, configured captions, editor feedback, primary hover and focus restoration, draft and saving states, and explicit saves from page code and the grid button; HTTP fixture',
     );
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
