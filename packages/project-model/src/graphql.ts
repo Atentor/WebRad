@@ -62,7 +62,10 @@ export interface ProjectGraphQLEndpoint {
 export function groupGraphQLEndpoints(
   operations: readonly ProjectGraphQLOperation[],
 ): readonly ProjectGraphQLEndpoint[] {
-  const groups = new Map<string, ProjectGraphQLEndpoint & { operations: ProjectGraphQLOperation[] }>();
+  const groups = new Map<
+    string,
+    ProjectGraphQLEndpoint & { operations: ProjectGraphQLOperation[] }
+  >();
   for (const operation of operations) {
     const { database, runtime } = operation;
     const { table } = runtime;

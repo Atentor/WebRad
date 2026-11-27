@@ -115,9 +115,7 @@ export function RestGoGraphQLWorkspace({
       ]),
       ...GRAPHQL_ACTIONS.flatMap((kind) =>
         (tableChoices?.[kind] ?? []).flatMap(({ selection, inputs }) => [
-          ...selection
-            .filter(({ path }) => !path.includes('.'))
-            .map(({ path }) => path),
+          ...selection.filter(({ path }) => !path.includes('.')).map(({ path }) => path),
           ...inputs.map(({ field }) => field),
         ]),
       ),
@@ -141,9 +139,7 @@ export function RestGoGraphQLWorkspace({
     ].some((value) => value.toLowerCase().includes(searchText)),
   );
   const configuredTables = new Set(
-    savedEndpoints
-      .filter(({ database }) => database === draft?.database)
-      .map(({ table }) => table),
+    savedEndpoints.filter(({ database }) => database === draft?.database).map(({ table }) => table),
   );
   const availableTables = [...(tables?.keys() ?? [])]
     .filter((table) => !configuredTables.has(table))
@@ -311,10 +307,9 @@ export function RestGoGraphQLWorkspace({
           allNames.add(name.toLowerCase());
         } catch (reason) {
           setSelectedOperationId(id);
-          throw new Error(
-            `${KINDS[spec.kind]} · ${endpointName}: ${restGoErrorMessage(reason)}`,
-            { cause: reason },
-          );
+          throw new Error(`${KINDS[spec.kind]} · ${endpointName}: ${restGoErrorMessage(reason)}`, {
+            cause: reason,
+          });
         }
       }
       const removed = previous.filter(({ id }) => !next.has(id));
@@ -384,7 +379,9 @@ export function RestGoGraphQLWorkspace({
           >
             <span>
               <strong>{entry.name}</strong>
-              <small>{entry.database}/{entry.table}</small>
+              <small>
+                {entry.database}/{entry.table}
+              </small>
             </span>
             <span className="wr-restgo-list-methods">
               {GRAPHQL_ACTIONS.filter((kind) =>
@@ -460,7 +457,13 @@ export function RestGoGraphQLWorkspace({
                         );
                         if (next)
                           selectDraft(
-                            { ...draft, database: next.slug, table: '', actions: {}, fieldLabels: {} },
+                            {
+                              ...draft,
+                              database: next.slug,
+                              table: '',
+                              actions: {},
+                              fieldLabels: {},
+                            },
                             false,
                           );
                       }}

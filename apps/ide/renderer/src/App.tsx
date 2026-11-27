@@ -3685,7 +3685,10 @@ export function App(): ReactElement {
                   selectComponentGraphQLOperations(
                     {
                       ...graphQLClientComponent,
-                      props: { ...graphQLClientComponent.props, graphQLOperationIds: configuration },
+                      props: {
+                        ...graphQLClientComponent.props,
+                        graphQLOperationIds: configuration,
+                      },
                     },
                     project?.settings.graphQLOperations ?? [],
                   ).map(({ id }) => id),

@@ -54,19 +54,21 @@ export function GraphQLClientConfigurationDialog({
   const hasSelection = selectedEndpoint !== null || legacyIds.size > 0;
   const activeCount = choices.filter(({ active }) => active).length;
   const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  const matchingChoices = choices.filter(({ active, name, database, table, actions, operations }) => {
-    if (status !== 'all' && active !== (status === 'active')) return false;
-    if (terms.length === 0) return true;
-    const searchableText = [
-      name,
-      `${database}/${table}`,
-      actions,
-      ...operations.map(({ name }) => name),
-    ]
-      .join(' ')
-      .toLowerCase();
-    return terms.every((term) => searchableText.includes(term));
-  });
+  const matchingChoices = choices.filter(
+    ({ active, name, database, table, actions, operations }) => {
+      if (status !== 'all' && active !== (status === 'active')) return false;
+      if (terms.length === 0) return true;
+      const searchableText = [
+        name,
+        `${database}/${table}`,
+        actions,
+        ...operations.map(({ name }) => name),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return terms.every((term) => searchableText.includes(term));
+    },
+  );
   const pageCount = Math.max(1, Math.ceil(matchingChoices.length / endpointsPerPage));
   const currentPage = Math.min(page, pageCount);
   const firstResult = (currentPage - 1) * endpointsPerPage;

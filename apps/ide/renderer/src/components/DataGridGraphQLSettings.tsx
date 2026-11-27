@@ -29,7 +29,9 @@ export function DataGridGraphQLSettings({
   const actions = mutationFields.map(([kind, key, label]) => {
     const candidates = operations.filter(
       ({ database, runtime }) =>
-        database === query.database && runtime.table === query.runtime.table && runtime.kind === kind,
+        database === query.database &&
+        runtime.table === query.runtime.table &&
+        runtime.kind === kind,
     );
     const compatible = candidates.filter((operation) =>
       isDataGridGraphQLMutation(query, operation, kind),

@@ -805,7 +805,11 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
     control?.focus({ preventScroll });
   }
 
-  #openGraphQLGridEditor(kind: 'insert' | 'update', action: string, record?: DataGridGraphQLRow): void {
+  #openGraphQLGridEditor(
+    kind: 'insert' | 'update',
+    action: string,
+    record?: DataGridGraphQLRow,
+  ): void {
     if (this.#graphqlEditor !== null) return;
     const document = this.element.ownerDocument;
     const dialog = openGraphQLGridEditor(
@@ -929,12 +933,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       change: (value) => {
         if (!enabled || parameter === undefined) return;
         try {
-          this.#graphql.stage(
-            kind,
-            record.original,
-            { [parameter.name]: value },
-            record.draft?.id,
-          );
+          this.#graphql.stage(kind, record.original, { [parameter.name]: value }, record.draft?.id);
         } catch (reason: unknown) {
           this.#graphql.showDraftError(reason);
           return;
@@ -1117,8 +1116,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       }
       body.append(row);
     }
-    const showLoadingPlaceholder =
-      graphql && this.#graphql.authenticated && this.#graphql.loading;
+    const showLoadingPlaceholder = graphql && this.#graphql.authenticated && this.#graphql.loading;
     if (rows.length === 0 && !showLoadingPlaceholder) {
       const row = document.createElement('div');
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
@@ -1131,9 +1129,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.setAttribute('aria-colspan', String(columnCount));
       cell.style.gridColumn = `1 / span ${String(columnCount)}`;
       cell.textContent =
-        graphql && !this.#graphql.authenticated
-          ? this.#labels.signIn
-          : configuration.emptyMessage;
+        graphql && !this.#graphql.authenticated ? this.#labels.signIn : configuration.emptyMessage;
       row.append(cell);
       body.append(row);
     }

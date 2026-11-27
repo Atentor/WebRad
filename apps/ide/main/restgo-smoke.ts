@@ -1918,7 +1918,10 @@ export class index extends indexGenerated {
       })()`,
       true,
     );
-    const [evidence]: [unknown, void] = await Promise.all([evidencePromise, hoverGridApply(window)]);
+    const [evidence]: [unknown, void] = await Promise.all([
+      evidencePromise,
+      hoverGridApply(window),
+    ]);
     if (
       typeof evidence !== 'object' ||
       evidence === null ||

@@ -543,7 +543,9 @@ export function DataGridConfigurationDialog({
                         ...current,
                         apiClientId: graphQL === undefined ? selectedId : null,
                         graphql:
-                          graphQL === undefined ? undefined : newGraphQLBinding(selectedId, nextQuery),
+                          graphQL === undefined
+                            ? undefined
+                            : newGraphQLBinding(selectedId, nextQuery),
                         operationId: nextQuery?.id ?? null,
                         listPath: '',
                         columns: reconcileColumnFieldPaths(

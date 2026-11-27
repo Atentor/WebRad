@@ -26,8 +26,15 @@ for the current grid to finish refreshing and for the primary action's hover
 transition. It verifies two explicit saves and the Auto save as three distinct
 HTTP mutations. Noneditable Data Grid checkboxes retain their disabled state.
 The grid controls the tab index of its own toggles, and standalone toggles retain
-the tab order set by the project. The embedded runtime was regenerated. The
-current changes still need a GitHub Actions run.
+the tab order set by the project. The embedded runtime was regenerated.
+
+`735909d` passed the generated-source check, typecheck, lint, security, and all
+six portable jobs. Ubuntu and Windows validation and all six builds stopped at
+Prettier, which reported the same nine files in every failed job. Those files
+have been formatted and the compiler's embedded runtime has been regenerated
+from the formatted source. The updated files still need a GitHub Actions run.
+[735909d validation](https://github.com/Atentor/WebRad/actions/runs/45925140619)
+[735909d release verification](https://github.com/Atentor/WebRad/actions/runs/45925140674)
 
 ## Data Grid action feedback
 

@@ -102,8 +102,7 @@ export function DataGridLabelsSettings({
 }: DataGridLabelsSettingsProps): ReactElement {
   const language = getDataGridLabelLanguage(draft);
   const custom = language === 'custom';
-  const autoSaveEnabled =
-    draft.graphql?.crudEnabled === true && draft.graphql?.autoSave === true;
+  const autoSaveEnabled = draft.graphql?.crudEnabled === true && draft.graphql?.autoSave === true;
   const labels = resolveDataGridLabels(draft);
   const mutationIds = [draft.graphql?.insertOperationId, draft.graphql?.updateOperationId];
   const fields = new Map<string, string>();
@@ -113,7 +112,10 @@ export function DataGridLabelsSettings({
       const { fieldPath, role } = parameter.source;
       if (role !== 'input' || !fieldPath.startsWith('/')) continue;
       const field = fieldPath.split('/').at(-1)?.replaceAll('~1', '/').replaceAll('~0', '~');
-      fields.set(fieldPath, operation.runtime.fieldLabels?.[fieldPath] ?? (field || parameter.name));
+      fields.set(
+        fieldPath,
+        operation.runtime.fieldLabels?.[fieldPath] ?? (field || parameter.name),
+      );
     }
   }
 
