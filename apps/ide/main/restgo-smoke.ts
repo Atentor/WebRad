@@ -1807,7 +1807,12 @@ export class index extends indexGenerated {
           gridAction('edit-1').click();
           const editor = document.querySelector('.wr-data-grid-graphql-editor[open]');
           const input = editor?.querySelector('input');
-          if (!(input instanceof HTMLInputElement) || input.value !== current) throw new Error('Grid editor did not map the GraphQL input');
+          if (!(input instanceof HTMLInputElement)) {
+            throw new Error('Grid edit did not open with a GraphQL input for ' + current);
+          }
+          if (input.value !== current) {
+            throw new Error('Grid editor mapped ' + JSON.stringify(input.value) + ' instead of ' + JSON.stringify(current));
+          }
           if (editor.getAttribute('aria-label') !== 'Change customer details' ||
               input.closest('label')?.querySelector('span').textContent !== fieldLabel ||
               editor.querySelector('button[type="submit"]')?.textContent !== 'Keep draft') {
@@ -1863,8 +1868,10 @@ export class index extends indexGenerated {
         }
         await waitForGrid(() => !!page.dataset.graphQlSaveError ||
           (Number(page.dataset.graphQlSaveCount) === saveCountBeforeButton + 1 &&
-            gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again'),
-        'The grid button did not save its draft');
+            gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again' &&
+            !document.querySelector('.wr-data-grid-graphql-editor') &&
+            gridAction('edit-1')?.disabled === false),
+        'The grid button did not save its draft or the editor did not finish closing');
         if (page.dataset.graphQlSaveError) throw new Error(page.dataset.graphQlSaveError);
         const saveCountBeforeAutoSave = Number(page.dataset.graphQlSaveCount);
         const autoSaveButton = document.querySelector(${JSON.stringify(`[${gridAutoSaveAttribute}="true"]`)});

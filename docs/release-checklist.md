@@ -25,8 +25,9 @@ Keep the existing configuration and binding pass markers in both runners.
 The configuration smoke switches label languages and checks the navigation and
 Add captions. It reopens the dialog after Save and Cancel to verify the
 selection and custom captions, and verifies that the Save-button option starts
-checked for a new grid. The compiled GraphQL fixture checks custom
-pagination, editor, and draft action labels. It checks the editor's primary
+checked for a new grid. After verifying the saved configuration on Columns,
+open Labels explicitly before selecting another language. The compiled GraphQL
+fixture checks custom pagination, editor, and draft action labels. It checks the editor's primary
 action, first-field focus, focus restoration on Cancel, and feedback for draft
 and saving states. It exercises both explicit save paths and verifies that each
 writes only the intended record.
@@ -34,6 +35,8 @@ The same compiled fixture enables Auto save, stages an edit, verifies that the
 manual Save, Discard, and row Undo actions stay hidden, and confirms the
 mutation is committed without a manual button click. Check exactly three HTTP
 mutations in order and verify the target record and new name for each save.
+Before starting the Auto save edit, wait for the previous dialog to be removed
+after its native close event and for the saved row's Edit action to be enabled.
 The fixture button and the renderer lookup share `data-graphql-auto-save`.
 The previous spelling mismatch stopped both development smokes and all six
 packaged smokes on `69bb163`, after both explicit saves.

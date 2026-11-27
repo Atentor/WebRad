@@ -47,6 +47,22 @@ click and the third HTTP mutation check remain part of the workflow.
 [69bb163 release verification](https://github.com/Atentor/WebRad/actions/runs/45927285838)
 [Packaged Linux failure artifact](https://github.com/Atentor/WebRad/actions/runs/45927285838/artifacts/15167012294)
 
+`f9cacf5` passed `npm run validate` on Ubuntu and Windows, all six portable
+jobs, and security. Both development smokes and five packaged smokes failed
+while opening the Auto save edit. The previous editor can still block the next
+edit until its native `close` event clears it. The compiled fixture now waits
+for the saved row, the removed dialog, and an enabled Edit action within the
+existing save deadline. It reports missing input separately from an unexpected
+input value.
+
+The macOS ARM64 package passed the compiled GraphQL workflow with all three
+HTTP mutations. Its next failure was in the configuration smoke after Cancel.
+The saved configuration check ends on Columns, so the smoke now opens Labels
+before selecting Portuguese. Both changes await a run on the corrected SHA.
+[Validation run](https://github.com/Atentor/WebRad/actions/runs/45974964598)
+[Packaged Linux artifact](https://github.com/Atentor/WebRad/actions/runs/45974964545/artifacts/15186513300)
+[Packaged macOS ARM64 artifact](https://github.com/Atentor/WebRad/actions/runs/45974964545/artifacts/15187191285)
+
 ## Data Grid action feedback
 
 The GraphQL editor uses a themed header, scrollable fields, and a distinct

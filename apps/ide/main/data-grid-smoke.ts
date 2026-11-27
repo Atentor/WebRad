@@ -506,6 +506,7 @@ export async function runDataGridConfigurationSmoke(
     await click(window, '.wr-data-grid-configuration-actions button:not(.primary)');
     await openConfiguration(window);
     await assertSavedEditor(window);
+    await openConfigurationTab(window, 'labels');
     await setField(window, 'language', 'pt');
     await click(window, '.wr-data-grid-configuration-actions button.primary');
     await ready(window, `document.querySelector(${JSON.stringify(dialogSelector)}) === null`);
