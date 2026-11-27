@@ -1,5 +1,16 @@
 # WebRAD delivery plan
 
+## Generated runtime synchronization for 74469ea
+
+Ubuntu and Windows validation and all six release builds stopped at the
+embedded runtime source check after the Data Grid toggle change. The compiler's
+embedded sources and declarations now include the updated toggle behavior.
+Security and all six portable test jobs passed on the original commit. Each job
+reported 1,774 passed and 43 skipped tests. The regenerated files still need
+verification on GitHub Actions.
+[Validation run](https://github.com/Atentor/WebRad/actions/runs/45917230757)
+[Release run](https://github.com/Atentor/WebRad/actions/runs/45917230744)
+
 ## Data Grid action feedback
 
 The GraphQL editor uses a themed header, scrollable fields, and a distinct
