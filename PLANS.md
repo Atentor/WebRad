@@ -9,8 +9,29 @@ marks invalid values, and restores focus to the grid action on close. Row
 actions display only accessible icons, without the Rascunho badge; the grid
 toolbar still reports unsaved changes and save progress. The existing compiled
 Electron flow exercises these states and direct checkbox/toggle activation,
-which stages an edit through the same GraphQL draft events as the editor.
+which stages an edit through the same GraphQL draft events as the editor. The
+GraphQL action toolbar is above the rows while pagination remains below them.
 Validation was not requested or run.
+
+## Data Grid GraphQL Auto save
+
+The optional Auto save setting is available when record editing is enabled and
+starts unchecked. Staging an accepted edit, insert, or delete saves its pending
+changes through the existing GraphQL mutation queue. Manual Save, Discard, and
+per-row Undo actions and the manual Save-button label option are hidden while
+Auto save is active. Refreshes retain displayed rows until the new page arrives.
+Save events and failures retain their existing contract, and enabling
+Auto save also submits existing drafts. The RestGO smoke covers automatic
+commit and hidden manual actions. Validation was not requested or run.
+
+## Data Grid GraphQL loading
+
+When an authenticated GraphQL query has no current rows during refresh, the
+grid leaves its body empty instead of displaying a loading message. It keeps
+the accessible busy state and updates the rows when the request completes.
+Loading status remains available outside the row area. The RestGO smoke checks
+that no loading caption appears inside rows during refresh. Validation was not
+requested or run.
 
 ## Data Grid label language
 
@@ -19,6 +40,8 @@ stores the selection per grid and retains custom captions when a preset is
 active. Earlier grids with overrides open in Custom. The existing configuration
 smoke covers preset captions, save, reopen, and cancel. Validation was not
 requested or run.
+The option to show the Save button is checked by default for new grids and
+configurations that omit the setting.
 
 The built-in captions use shorter dialog titles, actions, and feedback in all
 three languages. Apply stages a draft and Save sends pending changes.

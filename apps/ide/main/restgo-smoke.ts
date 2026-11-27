@@ -1419,6 +1419,7 @@ export class index extends indexGenerated {
   public GridSaved(sender: WebDataGrid, event: CustomEvent<WebDataGridSaveChangesEventDetail>): void {
     if (sender !== this.CustomerGrid) throw new Error('Grid save event lost its concrete instance');
     this.element.dataset.graphQlSaved = String(event.detail.applied);
+    this.element.dataset.graphQlSaveCount = String(Number(this.element.dataset.graphQlSaveCount ?? '0') + 1);
   }
   public PaymentChanged(sender: WebPayments, event: CustomEvent<WebPaymentsOperationEventDetail>): void {
     if (sender !== this.Payments1 && sender !== this.Payments2) throw new Error('Payments lost its concrete scoped instance');
@@ -1581,6 +1582,17 @@ export class index extends indexGenerated {
       });
     });
     this.element.append(saveGrid);
+    const enableGridAutoSave = document.createElement('button');
+    enableGridAutoSave.dataset.graphqlAutoSave = 'true';
+    enableGridAutoSave.addEventListener('click', () => {
+      const configuration = this.CustomerGrid.dataGridConfig;
+      if (configuration.graphql === undefined) throw new Error('GraphQL grid configuration is missing');
+      this.CustomerGrid.dataGridConfig = {
+        ...configuration,
+        graphql: { ...configuration.graphql, autoSave: true },
+      };
+    });
+    this.element.append(enableGridAutoSave);
     const inheritGridLabels = document.createElement('button');
     inheritGridLabels.dataset.graphqlInheritLabels = 'true';
     inheritGridLabels.addEventListener('click', () => {
@@ -1641,12 +1653,39 @@ export class index extends indexGenerated {
         const combo = document.querySelector('select[data-webrad-name="CustomerChoices"]');
         const gridCell = () => grid.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent;
         const gridAction = (name) => grid.querySelector('[data-webrad-grid-action="' + name + '"]');
+        const gridScroll = grid.querySelector('.wr-data-grid-scroll');
+        const loadingMessages = ['Loading records…', 'Carregando registros…', 'Cargando registros…'];
+        let lastReadyRowCount = 0;
+        const assertStableRowsDuringRefresh = () => {
+          const loading = gridScroll.getAttribute('aria-busy') === 'true';
+          const visibleRows = [...grid.querySelectorAll('.wr-data-grid-body-row')]
+            .filter(row => row.querySelector('.wr-data-grid-empty') === null).length;
+          const emptyText = grid.querySelector('.wr-data-grid-empty')?.textContent?.trim();
+          if (loading && loadingMessages.includes(emptyText)) {
+            throw new Error('The Data Grid showed a loading message inside its rows while refreshing');
+          }
+          if (loading && lastReadyRowCount > 0 && visibleRows === 0) {
+            throw new Error('The Data Grid rows disappeared while their refresh was in progress');
+          }
+          if (!loading) lastReadyRowCount = visibleRows;
+        };
         const waitForGrid = async (condition, message) => {
           const deadline = Date.now() + 5000;
-          while (Date.now() < deadline && !condition()) await new Promise(resolve => setTimeout(resolve, 10));
+          while (Date.now() < deadline && !condition()) {
+            assertStableRowsDuringRefresh();
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+          assertStableRowsDuringRefresh();
           if (!condition()) throw new Error(message);
         };
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
+        const gridTools = grid.querySelector('.wr-data-grid-graphql-tools');
+        const gridPager = grid.querySelector('.wr-data-grid-graphql-pager');
+        if (grid.firstElementChild !== gridTools ||
+            gridTools?.nextElementSibling !== gridScroll ||
+            gridScroll?.nextElementSibling !== gridPager) {
+          throw new Error('GraphQL Data Grid actions were not above the rows with pagination below');
+        }
         const activeCheckbox = grid.querySelector('.wr-data-grid-checkbox');
         const featuredToggle = grid.querySelector('.wr-data-grid-toggle');
         if (!(activeCheckbox instanceof HTMLInputElement) || activeCheckbox.disabled ||
@@ -1819,6 +1858,23 @@ export class index extends indexGenerated {
           throw new Error('Grid Save did not show in-progress feedback');
         }
         await waitForGrid(() => gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again', 'The grid button did not save its draft');
+        const saveCountBeforeAutoSave = Number(page.dataset.graphQlSaveCount);
+        document.querySelector('[data-graphql-autosave="true"]').click();
+        await waitForGrid(() => gridAction('save') === null, 'The grid did not enter Auto save mode');
+        stageGridEdit('Grid Alpha Auto Saved', 'Grid Alpha Saved Again', 'Endpoint customer name');
+        if (gridAction('save') !== null || gridAction('discard') !== null || gridAction('undo-1') !== null) {
+          throw new Error('Auto save exposed manual Save, Discard, or Undo actions');
+        }
+        await waitForGrid(
+          () =>
+            !!page.dataset.graphQlSaveError ||
+            (Number(page.dataset.graphQlSaveCount) > saveCountBeforeAutoSave &&
+              gridCell() === 'Grid Alpha Auto Saved'),
+          'Auto save did not persist the staged GraphQL edit',
+        );
+        if (page.dataset.graphQlSaveError || grid.querySelector('[data-webrad-grid-draft]')) {
+          throw new Error(page.dataset.graphQlSaveError || 'Auto save retained a saved grid draft');
+        }
         document.querySelector('[data-payments-exercise="true"]').click();
         const paymentsDeadline = Date.now() + 5000;
         while (Date.now() < paymentsDeadline && page.dataset.paymentsComplete !== 'true' && !page.dataset.paymentsError)

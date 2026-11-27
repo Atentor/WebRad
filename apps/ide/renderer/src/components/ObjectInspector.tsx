@@ -919,6 +919,23 @@ function PropertyEditor({
             />
             <span>Enable CRUD</span>
           </label>
+          {graphql.crudEnabled && (
+            <label>
+              <input
+                type="checkbox"
+                aria-label="Auto save"
+                checked={graphql.autoSave === true}
+                disabled={disabled}
+                onChange={(event) =>
+                  onChange({
+                    ...configuration,
+                    graphql: { ...graphql, autoSave: event.currentTarget.checked },
+                  })
+                }
+              />
+              <span>Auto save</span>
+            </label>
+          )}
         </div>
       );
     }

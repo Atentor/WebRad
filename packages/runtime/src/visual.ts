@@ -1601,9 +1601,9 @@ ${WEB_LOGIN_CSS}
 .wr-webdatagrid[data-webrad-grid-graphql] { display: flex; flex-direction: column; }
 .wr-webdatagrid[data-webrad-grid-graphql] > .wr-data-grid-scroll { flex: 1 1 auto; height: auto; min-height: 0; }
 .wr-data-grid-graphql-tools, .wr-data-grid-graphql-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.wr-data-grid-graphql-tools { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 8px 10px; border-top: 1px solid var(--wr-theme-border, #cbd5e1); background: var(--wr-theme-surface, Canvas); }
+.wr-data-grid-graphql-tools { flex: 0 1 auto; min-height: 0; overflow: auto; padding: 8px 10px; border-bottom: 1px solid var(--wr-theme-border, #cbd5e1); background: var(--wr-theme-surface, Canvas); }
 .wr-data-grid-graphql-tools[hidden] { display: none; }
-.wr-data-grid-graphql-pager { margin-inline-start: auto; }
+.wr-data-grid-graphql-pager { flex: 0 1 auto; min-height: 0; overflow: auto; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--wr-theme-border, #cbd5e1); background: var(--wr-theme-surface, Canvas); }
 .wr-data-grid-graphql-page { color: var(--wr-theme-text-muted, inherit); font-size: .9em; }
 .wr-data-grid-graphql-status, .wr-data-grid-graphql-draft { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; box-sizing: border-box; padding: 4px 8px; border-radius: 6px; font-size: .85em; font-weight: 600; overflow-wrap: anywhere; }
 .wr-data-grid-graphql-status[data-state='draft'], .wr-data-grid-graphql-draft { background: color-mix(in srgb, var(--wr-accent, #2563eb) 12%, var(--wr-theme-surface, Canvas)); color: var(--wr-theme-text, CanvasText); }

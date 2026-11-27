@@ -13,6 +13,7 @@ export interface WebDataGridGraphQLConfiguration {
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
+  readonly autoSave?: boolean;
   readonly insertOperationId: string | null;
   readonly updateOperationId: string | null;
   readonly deleteOperationId: string | null;
@@ -235,6 +236,9 @@ export class DataGridGraphQL {
   public get saving(): boolean {
     return this.#save !== null;
   }
+  public get autoSave(): boolean {
+    return this.#configuration?.crudEnabled === true && this.#configuration?.autoSave === true;
+  }
   public get hasChanges(): boolean {
     return this.#changes.length > 0;
   }
@@ -249,12 +253,22 @@ export class DataGridGraphQL {
   }
 
   public get canGoBack(): boolean {
-    return !this.loading && this.#page !== undefined && this.#page.index > 0;
+    return (
+      !this.loading &&
+      this.#queryError === undefined &&
+      this.#page !== undefined &&
+      this.#page.index > 0
+    );
   }
 
   public get canGoForward(): boolean {
     const info = this.#page?.result.pageInfo;
-    return !this.loading && info?.hasNextPage === true && info.endCursor !== null;
+    return (
+      !this.loading &&
+      this.#queryError === undefined &&
+      info?.hasNextPage === true &&
+      info.endCursor !== null
+    );
   }
 
   public get pendingChanges(): readonly WebDataGridPendingChange[] {
@@ -294,6 +308,7 @@ export class DataGridGraphQL {
     if (JSON.stringify(configuration) === JSON.stringify(this.#configuration)) return;
     const previous = this.#configuration;
     this.#configuration = configuration;
+    const shouldSave = previous?.autoSave !== true && this.autoSave;
     if (
       previous?.sourceId !== configuration?.sourceId ||
       previous?.operationId !== configuration?.operationId ||
@@ -308,8 +323,9 @@ export class DataGridGraphQL {
     }
     if (previous?.pageSize !== configuration?.pageSize) {
       this.#pageSize = this.#initialPageSize();
-      void this.refresh();
+      void this.#refresh(undefined, false);
     }
+    if (shouldSave && this.#changes.length > 0) this.#saveAutomatically();
   }
 
   public bind(source: WebGraphQLSource | null): void {
@@ -374,10 +390,13 @@ export class DataGridGraphQL {
               this.render();
               return;
             }
-            if (change.kind === 'session') this.#resetChanges();
+            if (change.kind === 'session') {
+              this.#resetChanges();
+              this.#resetPage();
+            }
             if (change.kind === 'parameters' || change.kind === 'session') {
               this.#variables = undefined;
-              void this.refresh();
+              void this.#refresh(undefined, false);
             }
           });
     this.#pageSize = this.#initialPageSize();
@@ -411,9 +430,24 @@ export class DataGridGraphQL {
   }
 
   public refresh(variables?: WebDataGridMutationValues): Promise<void> {
+    const preserveHistory =
+      variables === undefined || JSON.stringify(variables) === JSON.stringify(this.#variables);
+    return this.#refresh(variables, preserveHistory);
+  }
+
+  #refresh(
+    variables: WebDataGridMutationValues | undefined,
+    preserveHistory: boolean,
+  ): Promise<void> {
     if (this.#queryOperation() === undefined) return Promise.resolve();
     if (variables !== undefined) this.#variables = structuredClone(variables);
+    const previousPage = this.#source?.authenticated === true ? this.#page : undefined;
+    const previousAfter = preserveHistory ? this.#after : [null];
+    const previousHasPageNumbers = preserveHistory ? this.#hasPageNumbers : true;
     this.#resetPage();
+    this.#page = previousPage;
+    this.#after = previousAfter;
+    this.#hasPageNumbers = previousHasPageNumbers;
     return this.#load(0);
   }
 
@@ -422,7 +456,7 @@ export class DataGridGraphQL {
       return Promise.resolve();
     }
     this.#pageSize = size;
-    return this.refresh();
+    return this.#refresh(undefined, false);
   }
 
   public nextPage(): Promise<void> {
@@ -630,7 +664,7 @@ export class DataGridGraphQL {
       previous === undefined
         ? [...this.#changes, change]
         : this.#changes.map((candidate) => (candidate.id === change.id ? change : candidate));
-    this.#changed();
+    this.#changed(true);
   }
 
   public cancelChanges(id?: number): void {
@@ -640,10 +674,17 @@ export class DataGridGraphQL {
     if (this.#changes.length !== previousLength) this.#changed();
   }
 
-  #changed(): void {
+  #changed(stageChange = false): void {
     this.#saveError = undefined;
     this.render();
     this.emit('OnChangesChanged', { pendingChanges: this.pendingChanges });
+    if (stageChange && this.autoSave && this.#changes.length > 0) this.#saveAutomatically();
+  }
+
+  #saveAutomatically(): void {
+    void this.saveChanges().catch(() => {
+      // The controller records the error and emits OnSaveError.
+    });
   }
 
   public saveChanges(): Promise<void> {
@@ -656,6 +697,17 @@ export class DataGridGraphQL {
     this.#save = Promise.resolve().then(() => this.#applyChanges(source, generation, changes));
     this.render();
     return this.#save;
+  }
+
+  #applySavedChange(change: PendingChange): void {
+    const page = this.#page;
+    if (page === undefined || change.kind === 'insert') return;
+    const rows = [...page.result.rows];
+    const rowIndex = rows.findIndex((row) => matchesRow(change, row));
+    if (rowIndex < 0) return;
+    if (change.kind === 'delete') rows.splice(rowIndex, 1);
+    else rows[rowIndex] = change.overlay;
+    this.#page = { ...page, result: { ...page.result, rows } };
   }
 
   async #applyChanges(
@@ -682,6 +734,7 @@ export class DataGridGraphQL {
               'Expected one affected record. Refresh the grid and review the pending change.',
             );
           }
+          this.#applySavedChange(change);
           this.#changes = this.#changes.filter((candidate) => candidate.id !== change.id);
           applied += 1;
         } catch (reason) {
@@ -714,6 +767,7 @@ export class DataGridGraphQL {
       throw failure.error;
     }
     this.emit('OnSaveChanges', detail);
+    if (this.autoSave && this.#changes.length > 0) this.#saveAutomatically();
   }
 
   public dispose(): void {

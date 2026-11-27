@@ -56,8 +56,12 @@ cells use the boolean value. In a GraphQL grid with a matching boolean mutation
 input, directly changing a checkbox or toggle stages the row through the same
 draft flow as applying the edit dialog. It emits `OnChangesChanged` and is
 committed through `SaveChanges`; staging does not mutate the source row or API
-response. A GraphQL boolean control is disabled when its row cannot be
-edited. Other grids retain their existing `OnCellClick` behavior.
+response. **Auto save** is an optional GraphQL grid setting, off by default,
+that saves accepted drafts immediately and hides the manual Save, Discard, and
+per-row Undo actions. The grid still emits its change and save events; failed
+drafts remain pending and report `OnSaveError`. A GraphQL boolean control is
+disabled when its row cannot be edited. Other grids retain their existing
+`OnCellClick` behavior.
 `OnCellClick` retains the original `value` and exposes the rendered input as
 `displayValue`. The event can run more than once when data or the grid is
 refreshed; keep it fast and free of side effects. Its generated handler is

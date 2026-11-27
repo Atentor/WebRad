@@ -80,6 +80,17 @@ export function DataGridGraphQLSettings({
             />
             <span>Enable record editing</span>
           </label>
+          {binding.crudEnabled && (
+            <label>
+              <input
+                type="checkbox"
+                aria-label="Auto save"
+                checked={binding.autoSave === true}
+                onChange={(event) => onChange({ autoSave: event.currentTarget.checked })}
+              />
+              <span>Auto save</span>
+            </label>
+          )}
         </fieldset>
       </div>
       <div className="wr-data-grid-configuration-fields four-columns">
@@ -149,8 +160,10 @@ export function DataGridGraphQLSettings({
       </fieldset>
       {binding.crudEnabled && (
         <p>
-          Use a key field from the query in an equality condition for update and delete. Handle
-          OnChangesChanged to choose when to call SaveChanges.
+          Use a key field from the query in an equality condition for update and delete.{' '}
+          {binding.autoSave === true
+            ? 'Changes are saved automatically after they are applied.'
+            : 'Handle OnChangesChanged to choose when to call SaveChanges.'}
         </p>
       )}
     </>

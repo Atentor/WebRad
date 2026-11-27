@@ -67,7 +67,6 @@ const labelGroups = [
       unsaved: 'Unsaved changes status',
       saving: 'Saving status',
       loading: 'Loading status',
-      loadingRecords: 'Loading records message',
       signIn: 'Sign-in message',
       retry: 'Retry button',
       uncertainSave: 'Uncertain save guidance',
@@ -103,6 +102,8 @@ export function DataGridLabelsSettings({
 }: DataGridLabelsSettingsProps): ReactElement {
   const language = getDataGridLabelLanguage(draft);
   const custom = language === 'custom';
+  const autoSaveEnabled =
+    draft.graphql?.crudEnabled === true && draft.graphql?.autoSave === true;
   const labels = resolveDataGridLabels(draft);
   const mutationIds = [draft.graphql?.insertOperationId, draft.graphql?.updateOperationId];
   const fields = new Map<string, string>();
@@ -148,7 +149,7 @@ export function DataGridLabelsSettings({
         <fieldset className="wr-data-grid-label-group" key={group.title}>
           <legend>{group.title}</legend>
           {'hint' in group && <p>{group.hint}</p>}
-          {group.title === 'Record actions' && (
+          {group.title === 'Record actions' && !autoSaveEnabled && (
             <label className="wr-data-grid-label-toggle">
               <input
                 type="checkbox"

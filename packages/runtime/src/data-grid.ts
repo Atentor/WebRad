@@ -276,6 +276,7 @@ function normalizeGraphQLConfiguration(
     pageSize: Math.trunc(finiteNumberInRange(value.pageSize, 20, 1, 1_000)),
     showPager: value.showPager !== false,
     crudEnabled: value.crudEnabled === true,
+    autoSave: value.autoSave === true,
     insertOperationId: typeof value.insertOperationId === 'string' ? value.insertOperationId : null,
     updateOperationId: typeof value.updateOperationId === 'string' ? value.updateOperationId : null,
     deleteOperationId: typeof value.deleteOperationId === 'string' ? value.deleteOperationId : null,
@@ -327,9 +328,7 @@ export function normalizeWebDataGridConfiguration(value: unknown): WebDataGridCo
       : {}),
     ...(Object.keys(labels).length === 0 ? {} : { labels }),
     ...(Object.keys(editorFieldLabels).length === 0 ? {} : { editorFieldLabels }),
-    ...(typeof source.showSaveButton === 'boolean'
-      ? { showSaveButton: source.showSaveButton }
-      : {}),
+    showSaveButton: source.showSaveButton !== false,
     columnCount: normalizedColumns.length,
     showHeader: source.showHeader !== false,
     stickyHeader: source.stickyHeader !== false,
@@ -850,16 +849,18 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
             ? labels.deletePending
             : labels.draft;
       cell.append(state);
-      cell.append(
-        gridAction(
-          document,
-          'undo',
-          labels.undo,
-          () => this.#graphql.cancelChanges(draft.id),
-          this.#graphql.saving,
-          suffix,
-        ),
-      );
+      if (!this.#graphql.autoSave) {
+        cell.append(
+          gridAction(
+            document,
+            'undo',
+            labels.undo,
+            () => this.#graphql.cancelChanges(draft.id),
+            this.#graphql.saving,
+            suffix,
+          ),
+        );
+      }
     }
     const kind = record.original === null ? 'insert' : 'update';
     if (
@@ -1116,7 +1117,9 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       }
       body.append(row);
     }
-    if (rows.length === 0) {
+    const showLoadingPlaceholder =
+      graphql && this.#graphql.authenticated && this.#graphql.loading;
+    if (rows.length === 0 && !showLoadingPlaceholder) {
       const row = document.createElement('div');
       row.className = 'wr-data-grid-row wr-data-grid-body-row';
       row.setAttribute('role', 'row');
@@ -1130,9 +1133,7 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
       cell.textContent =
         graphql && !this.#graphql.authenticated
           ? this.#labels.signIn
-          : graphql && this.#graphql.loading
-            ? this.#labels.loadingRecords
-            : configuration.emptyMessage;
+          : configuration.emptyMessage;
       row.append(cell);
       body.append(row);
     }
@@ -1172,16 +1173,15 @@ export class WebDataGrid extends WebComponent<HTMLDivElement> {
 
     scroll.append(content);
     if (graphql) {
-      this.element.replaceChildren(
-        scroll,
-        graphQLGridTools(
-          document,
-          this.#graphql,
-          this.#labels,
-          configuration.showSaveButton === true,
-          () => this.#openGraphQLGridEditor('insert', 'insert'),
-        ),
+      const { toolbar, pager } = graphQLGridTools(
+        document,
+        this.#graphql,
+        this.#labels,
+        configuration.showSaveButton === true,
+        () => this.#openGraphQLGridEditor('insert', 'insert'),
       );
+      this.element.replaceChildren(toolbar, scroll);
+      if (pager !== null) this.element.append(pager);
     } else {
       this.element.replaceChildren(scroll);
     }

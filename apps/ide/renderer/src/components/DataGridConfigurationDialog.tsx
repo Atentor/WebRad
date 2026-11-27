@@ -104,6 +104,7 @@ function newGraphQLBinding(
     pageSize: query?.runtime.pagination?.defaultSize ?? 10,
     showPager: true,
     crudEnabled: false,
+    autoSave: false,
     insertOperationId: null,
     updateOperationId: null,
     deleteOperationId: null,

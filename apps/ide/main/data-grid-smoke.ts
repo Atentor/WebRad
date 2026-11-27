@@ -458,6 +458,10 @@ export async function runDataGridConfigurationSmoke(
       window,
       `document.querySelector(${JSON.stringify(labelledControl('language'))})?.value === 'en'`,
     );
+    await ready(
+      window,
+      `document.querySelector(${JSON.stringify(labelledControl('showSaveButton'))})?.checked === true`,
+    );
     for (const [language, next, add] of [
       ['es', 'Siguiente', 'Añadir'],
       ['pt', 'Próxima', 'Adicionar'],

@@ -136,6 +136,17 @@ To save from a separate button, call `await DataGrid1.SaveChanges()` in its
 click handler. To save immediately after an edit, call the same method from
 **OnChangesChanged**.
 
+Enable **Auto save** under **Record editing** or next to **Enable CRUD** in the
+Inspector to call `SaveChanges()` as soon as an editor change, direct Boolean
+edit, insert, or delete is staged. It is off by default and is available only
+when record editing is enabled. Auto save hides the grid's manual Save and
+Discard buttons, per-row Undo actions, and the Labels option for showing Save.
+`OnChangesChanged`, `OnSaveChanges`, and `OnSaveError` still fire. Failed
+changes remain pending and are reported by `OnSaveError`; uncertain outcomes
+must be checked on the server before retrying. Page code may still call
+`SaveChanges()` when recovery is appropriate. Turning Auto save on also saves
+any existing pending changes.
+
 In **Labels > Language**, choose **Português**, **English**, or **Español** for
 the grid's GraphQL controls, or choose **Custom** to edit their captions.
 Switching languages preserves custom captions. An empty custom caption uses the

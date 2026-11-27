@@ -76,13 +76,13 @@ export function graphQLGridTools(
   labels: ResolvedDataGridLabels,
   showSaveButton: boolean,
   openInsert: () => void,
-): HTMLDivElement {
+): { readonly toolbar: HTMLDivElement; readonly pager: HTMLElement | null } {
   const tools = document.createElement('div');
   tools.className = 'wr-data-grid-graphql-tools';
   if (grid.mutation('insert') !== undefined) {
     tools.append(gridAction(document, 'insert', labels.addRow, openInsert, grid.saving));
   }
-  if (grid.hasChanges) {
+  if (grid.hasChanges && !grid.autoSave) {
     if (showSaveButton) {
       tools.append(
         gridAction(
@@ -131,10 +131,8 @@ export function graphQLGridTools(
       }),
     );
   }
-  if (!grid.showPager) {
-    tools.hidden = tools.children.length === 1 && status.textContent === '';
-    return tools;
-  }
+  tools.hidden = tools.children.length === 1 && status.textContent === '';
+  if (!grid.showPager) return { toolbar: tools, pager: null };
 
   const pagination = document.createElement('nav');
   pagination.className = 'wr-data-grid-graphql-pager';
@@ -189,8 +187,7 @@ export function graphQLGridTools(
     void grid.setPageSize(Number(pageSize.value));
   });
   pagination.append(previous, summary, next, pageSize);
-  tools.append(pagination);
-  return tools;
+  return { toolbar: tools, pager: pagination };
 }
 
 function valueLabel(

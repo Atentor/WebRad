@@ -63,6 +63,7 @@ export interface DataGridGraphQLBinding {
   readonly pageSize: number;
   readonly showPager: boolean;
   readonly crudEnabled: boolean;
+  readonly autoSave?: boolean;
   readonly insertOperationId: string | null;
   readonly updateOperationId: string | null;
   readonly deleteOperationId: string | null;
@@ -183,6 +184,7 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
         pageSize: z.number().int().min(1).max(1_000),
         showPager: z.boolean(),
         crudEnabled: z.boolean(),
+        autoSave: z.boolean().default(false),
         insertOperationId: stableIdSchema.nullable(),
         updateOperationId: stableIdSchema.nullable(),
         deleteOperationId: stableIdSchema.nullable(),
@@ -192,7 +194,7 @@ const DataGridConfigurationV2Schema: z.ZodType<DataGridConfiguration> = z
     labelLanguage: z.enum(WEB_DATA_GRID_LABEL_LANGUAGES).optional(),
     labels: z.partialRecord(z.enum(WEB_DATA_GRID_LABEL_KEYS), labelSchema).optional(),
     editorFieldLabels: z.record(z.string().startsWith('/').max(4_096), labelSchema).optional(),
-    showSaveButton: z.boolean().optional(),
+    showSaveButton: z.boolean().default(true),
     columnCount: z.number().int().min(1).max(50),
     showHeader: z.boolean(),
     stickyHeader: z.boolean(),
@@ -366,6 +368,7 @@ const DEFAULT_DATA_GRID_CONFIGURATION = Object.freeze({
   operationId: null,
   listPath: '',
   columnCount: 3,
+  showSaveButton: true,
   showHeader: true,
   stickyHeader: true,
   showFooter: false,
