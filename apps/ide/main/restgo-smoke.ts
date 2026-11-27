@@ -227,6 +227,7 @@ async function rendererReady(window: BrowserWindow, expression: string): Promise
 }
 
 const gridApplySelector = '.wr-data-grid-graphql-editor[open] [data-webrad-grid-action="apply"]';
+const gridAutoSaveAttribute = 'data-graphql-auto-save';
 
 async function hoverGridApply(window: BrowserWindow): Promise<void> {
   const selector = JSON.stringify(gridApplySelector);
@@ -1583,7 +1584,7 @@ export class index extends indexGenerated {
     });
     this.element.append(saveGrid);
     const enableGridAutoSave = document.createElement('button');
-    enableGridAutoSave.dataset.graphqlAutoSave = 'true';
+    enableGridAutoSave.setAttribute(${JSON.stringify(gridAutoSaveAttribute)}, 'true');
     enableGridAutoSave.addEventListener('click', () => {
       const configuration = this.CustomerGrid.dataGridConfig;
       if (configuration.graphql === undefined) throw new Error('GraphQL grid configuration is missing');
@@ -1866,7 +1867,11 @@ export class index extends indexGenerated {
         'The grid button did not save its draft');
         if (page.dataset.graphQlSaveError) throw new Error(page.dataset.graphQlSaveError);
         const saveCountBeforeAutoSave = Number(page.dataset.graphQlSaveCount);
-        document.querySelector('[data-graphql-autosave="true"]').click();
+        const autoSaveButton = document.querySelector(${JSON.stringify(`[${gridAutoSaveAttribute}="true"]`)});
+        if (!(autoSaveButton instanceof HTMLButtonElement) || autoSaveButton.disabled) {
+          throw new Error('The GraphQL Data Grid Auto save fixture button is unavailable');
+        }
+        autoSaveButton.click();
         await waitForGrid(() => gridAction('save') === null, 'The grid did not enter Auto save mode');
         stageGridEdit('Grid Alpha Auto Saved', 'Grid Alpha Saved Again', 'Endpoint customer name');
         if (gridAction('save') !== null || gridAction('discard') !== null || gridAction('undo-1') !== null) {

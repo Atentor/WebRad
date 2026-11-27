@@ -34,6 +34,10 @@ The same compiled fixture enables Auto save, stages an edit, verifies that the
 manual Save, Discard, and row Undo actions stay hidden, and confirms the
 mutation is committed without a manual button click. Check exactly three HTTP
 mutations in order and verify the target record and new name for each save.
+The fixture button and the renderer lookup share `data-graphql-auto-save`.
+The previous spelling mismatch stopped both development smokes and all six
+packaged smokes on `69bb163`, after both explicit saves.
+[Ubuntu development artifact](https://github.com/Atentor/WebRad/actions/runs/45927285849/artifacts/15167446354)
 While GraphQL rows refresh, verify that the empty-row placeholder does not show
 a loading caption and the existing rows do not disappear; the grid's busy
 accessibility state remains intact. Read `aria-busy` from the current scroll

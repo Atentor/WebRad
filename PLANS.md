@@ -36,6 +36,17 @@ from the formatted source. The updated files still need a GitHub Actions run.
 [735909d validation](https://github.com/Atentor/WebRad/actions/runs/45925140619)
 [735909d release verification](https://github.com/Atentor/WebRad/actions/runs/45925140674)
 
+`69bb163` passed `npm run validate` on Ubuntu and Windows, all six portable
+jobs, and security. Both development smokes and all six packaged smokes failed
+at the same renderer interaction after Designer overflow recovery passed. The
+RestGO fixture exposed `data-graphql-auto-save`, but the smoke queried
+`data-graphql-autosave`. The fixture and the smoke now share the attribute
+name, and a missing button reports which control was unavailable. The real
+click and the third HTTP mutation check remain part of the workflow.
+[69bb163 validation](https://github.com/Atentor/WebRad/actions/runs/45927285849)
+[69bb163 release verification](https://github.com/Atentor/WebRad/actions/runs/45927285838)
+[Packaged Linux failure artifact](https://github.com/Atentor/WebRad/actions/runs/45927285838/artifacts/15167012294)
+
 ## Data Grid action feedback
 
 The GraphQL editor uses a themed header, scrollable fields, and a distinct
