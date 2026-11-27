@@ -59,9 +59,9 @@ committed through `SaveChanges`; staging does not mutate the source row or API
 response. **Auto save** is an optional GraphQL grid setting, off by default,
 that saves accepted drafts immediately and hides the manual Save, Discard, and
 per-row Undo actions. The grid still emits its change and save events; failed
-drafts remain pending and report `OnSaveError`. A GraphQL boolean control is
-disabled when its row cannot be edited. Other grids retain their existing
-`OnCellClick` behavior.
+drafts remain pending and report `OnSaveError`. Checkboxes and toggles are
+read-only when the row has no matching GraphQL edit. The grid still exposes
+clicks on the cell through `OnCellClick`.
 `OnCellClick` retains the original `value` and exposes the rendered input as
 `displayValue`. The event can run more than once when data or the grid is
 refreshed; keep it fast and free of side effects. Its generated handler is

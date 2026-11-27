@@ -488,7 +488,6 @@ function dataCell(
       const element = document.createElement('button');
       element.className = 'wr-component wr-webtoggle wr-data-grid-toggle';
       element.setAttribute('aria-label', column.header || 'Toggle');
-      element.tabIndex = 0;
       for (const name of ['track', 'thumb']) {
         const part = document.createElement('span');
         part.className = 'wr-toggle-' + name;
@@ -498,6 +497,7 @@ function dataCell(
       const toggle = new WebToggle(element);
       toggle.checked = cellBoolean(value);
       toggle.enabled = booleanInteraction?.enabled ?? false;
+      toggle.tabIndex = toggle.enabled ? 0 : -1;
       toggles.push(toggle);
       if (booleanInteraction !== undefined) {
         element.addEventListener('change', () => booleanInteraction.change(toggle.checked));
@@ -512,8 +512,8 @@ function dataCell(
       checkbox.className = 'wr-data-grid-checkbox';
       checkbox.type = 'checkbox';
       checkbox.checked = cellBoolean(value);
+      checkbox.disabled = !(booleanInteraction?.enabled ?? false);
       if (booleanInteraction !== undefined) {
-        checkbox.disabled = !booleanInteraction.enabled;
         checkbox.addEventListener('change', () => booleanInteraction.change(checkbox.checked));
       }
       checkbox.setAttribute(

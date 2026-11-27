@@ -3105,6 +3105,7 @@ describe('WebDataGrid', () => {
     expect(buttonIcon?.getAttribute('aria-hidden')).toBe('true');
     expect(buttonIcon?.getAttribute('viewBox')).toBe('0 0 24 24');
     expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked).toBe(true);
+    expect(host.querySelector<HTMLInputElement>('input[type="checkbox"]')?.disabled).toBe(true);
     expect(host.querySelector('.wr-data-grid-checkbox-caption')?.textContent).toBe('Enabled');
     expect(host.querySelector('.wr-data-grid-checkbox-control')).not.toBeNull();
     expect(host.querySelector('.wr-data-grid-footer-cell')?.textContent).toBe('2 customers');

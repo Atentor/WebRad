@@ -620,7 +620,10 @@ async function runDesignerOverflowSmoke(window: BrowserWindow): Promise<void> {
     `[...document.querySelectorAll('.wr-object-inspector label')].find(item => item.textContent.trim() === '${label}')?.control`;
   const position = `({ left: ${field('Left')}?.value, top: ${field('Top')}?.value })`;
   const setPosition = async (left: string, top: string): Promise<void> => {
-    for (const [label, value] of [['Left', left], ['Top', top]] as const) {
+    for (const [label, value] of [
+      ['Left', left],
+      ['Top', top],
+    ] as const) {
       await window.webContents.executeJavaScript(`(() => {
         const input = ${field(label)};
         if (!(input instanceof HTMLInputElement)) throw new Error('Missing position field ${label}');
@@ -702,7 +705,7 @@ async function runDesignerOverflowSmoke(window: BrowserWindow): Promise<void> {
     (value) => value === true,
   );
   pointer.sendInputEvent({ type: 'mouseDown', button: 'left', clickCount: 1, ...geometry.from });
-  pointer.sendInputEvent({ type: 'mouseMove', modifiers: ['leftButtonDown'], ...geometry.to });
+  pointer.sendInputEvent({ type: 'mouseMove', modifiers: ['leftbuttondown'], ...geometry.to });
   pointer.sendInputEvent({ type: 'mouseUp', button: 'left', clickCount: 1, ...geometry.to });
   const recovered = await waitForRendererResult(
     window,

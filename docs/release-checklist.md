@@ -8,6 +8,9 @@ native mouse input, verifies its position in the Inspector, and drags it back
 onto the page. It restores the original placement and reports
 `renderer Designer overflow recovery passed:` for both runners. Keep the
 separate Tablet horizontal scrolling and Designer tree selection evidence.
+Use Electron's `leftbuttondown` modifier for the drag movement. The mixed-case
+spelling caused TS2820 on all six targets after `v0.0.43`.
+[First failed release verification](https://github.com/Atentor/WebRad/actions/runs/45915873527)
 
 ## Data Grid configuration tabs
 
@@ -29,10 +32,13 @@ and saving states. It exercises both explicit save paths and verifies that each
 writes only the intended record.
 The same compiled fixture enables Auto save, stages an edit, verifies that the
 manual Save, Discard, and row Undo actions stay hidden, and confirms the
-mutation is committed without a manual button click.
+mutation is committed without a manual button click. Check exactly three HTTP
+mutations in order and verify the target record and new name for each save.
 While GraphQL rows refresh, verify that the empty-row placeholder does not show
 a loading caption and the existing rows do not disappear; the grid's busy
-accessibility state remains intact.
+accessibility state remains intact. Read `aria-busy` from the current scroll
+element because a render replaces that element. Wait for the primary action's
+computed hover background to reach the theme color after the transition.
 
 The GraphQL binding smoke reopens the client after binding a Data Grid and a
 ComboBox. The selected endpoint is protected while either control uses it and

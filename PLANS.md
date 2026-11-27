@@ -1,15 +1,33 @@
 # WebRAD delivery plan
 
-## Generated runtime synchronization for 74469ea
+## GitHub Actions after v0.0.43
 
-Ubuntu and Windows validation and all six release builds stopped at the
-embedded runtime source check after the Data Grid toggle change. The compiler's
-embedded sources and declarations now include the updated toggle behavior.
-Security and all six portable test jobs passed on the original commit. Each job
-reported 1,774 passed and 43 skipped tests. The regenerated files still need
-verification on GitHub Actions.
-[Validation run](https://github.com/Atentor/WebRad/actions/runs/45917230757)
-[Release run](https://github.com/Atentor/WebRad/actions/runs/45917230744)
+The tag passed validation, security, and the six-target release workflow.
+The next two commits, `3616183` and `bf40226`, have no separate Actions runs.
+The `721f443` runs first exposed three regressions. The Designer overflow smoke
+from `3616183` passed the invalid `leftButtonDown` modifier to Electron and
+caused TS2820. The portable tests found interactive read-only Data Grid toggles
+and a Data Grid animation leaking into projects without the component.
+[Tagged baseline](https://github.com/Atentor/WebRad/actions/runs/45800934050)
+[721f443 release verification](https://github.com/Atentor/WebRad/actions/runs/45915873527)
+
+`74469ea` corrected the portable failures, but validation and all six release
+builds stopped because the embedded runtime sources and declarations were stale.
+`24bf80b` passed the generated-source gate and all six portable jobs, each with
+1,774 passed and 43 skipped tests. Ubuntu and Windows validation and all six
+builds then stopped at the Designer TS2820 error. Security passed on all three
+post-tag SHAs with runs.
+[74469ea validation](https://github.com/Atentor/WebRad/actions/runs/45917230757)
+[24bf80b validation](https://github.com/Atentor/WebRad/actions/runs/45920862858)
+[24bf80b release verification](https://github.com/Atentor/WebRad/actions/runs/45920862696)
+
+The Designer smoke now sends `leftbuttondown`. The compiled RestGO smoke waits
+for the current grid to finish refreshing and for the primary action's hover
+transition. It verifies two explicit saves and the Auto save as three distinct
+HTTP mutations. Noneditable Data Grid checkboxes retain their disabled state.
+The grid controls the tab index of its own toggles, and standalone toggles retain
+the tab order set by the project. The embedded runtime was regenerated. The
+current changes still need a GitHub Actions run.
 
 ## Data Grid action feedback
 

@@ -1653,11 +1653,12 @@ export class index extends indexGenerated {
         const combo = document.querySelector('select[data-webrad-name="CustomerChoices"]');
         const gridCell = () => grid.querySelector('.wr-data-grid-body-row .wr-data-grid-cell')?.textContent;
         const gridAction = (name) => grid.querySelector('[data-webrad-grid-action="' + name + '"]');
-        const gridScroll = grid.querySelector('.wr-data-grid-scroll');
+        const gridScroll = () => grid.querySelector('.wr-data-grid-scroll');
         const loadingMessages = ['Loading records…', 'Carregando registros…', 'Cargando registros…'];
         let lastReadyRowCount = 0;
         const assertStableRowsDuringRefresh = () => {
-          const loading = gridScroll.getAttribute('aria-busy') === 'true';
+          const busy = gridScroll()?.getAttribute('aria-busy');
+          const loading = busy === 'true';
           const visibleRows = [...grid.querySelectorAll('.wr-data-grid-body-row')]
             .filter(row => row.querySelector('.wr-data-grid-empty') === null).length;
           const emptyText = grid.querySelector('.wr-data-grid-empty')?.textContent?.trim();
@@ -1667,23 +1668,21 @@ export class index extends indexGenerated {
           if (loading && lastReadyRowCount > 0 && visibleRows === 0) {
             throw new Error('The Data Grid rows disappeared while their refresh was in progress');
           }
-          if (!loading) lastReadyRowCount = visibleRows;
+          if (busy === 'false') lastReadyRowCount = visibleRows;
+          return busy === 'false';
         };
         const waitForGrid = async (condition, message) => {
           const deadline = Date.now() + 5000;
-          while (Date.now() < deadline && !condition()) {
-            assertStableRowsDuringRefresh();
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
-          assertStableRowsDuringRefresh();
-          if (!condition()) throw new Error(message);
+          const ready = () => assertStableRowsDuringRefresh() && condition();
+          while (Date.now() < deadline && !ready()) await new Promise(resolve => setTimeout(resolve, 10));
+          if (!ready()) throw new Error(message);
         };
         await waitForGrid(() => gridCell() === 'Grid Alpha', 'GraphQL Data Grid did not load the first page');
         const gridTools = grid.querySelector('.wr-data-grid-graphql-tools');
         const gridPager = grid.querySelector('.wr-data-grid-graphql-pager');
         if (grid.firstElementChild !== gridTools ||
-            gridTools?.nextElementSibling !== gridScroll ||
-            gridScroll?.nextElementSibling !== gridPager) {
+            gridTools?.nextElementSibling !== gridScroll() ||
+            gridScroll()?.nextElementSibling !== gridPager) {
           throw new Error('GraphQL Data Grid actions were not above the rows with pagination below');
         }
         const activeCheckbox = grid.querySelector('.wr-data-grid-checkbox');
@@ -1789,22 +1788,20 @@ export class index extends indexGenerated {
           throw new Error('The grid editor did not focus its first field or render its enlarged icons');
         }
         const hoveredApply = document.querySelector(${JSON.stringify(gridApplySelector)});
-        await waitForGrid(() => hoveredApply.matches(':hover'), 'The pointer did not reach Grid Apply');
         const expectedHover = document.createElement('span');
         expectedHover.style.backgroundColor = 'var(--wr-theme-primary-hover, #1d4ed8)';
         hoveredApply.parentElement.append(expectedHover);
         const expectedBackground = getComputedStyle(expectedHover).backgroundColor;
         expectedHover.remove();
-        const hoverStyle = getComputedStyle(hoveredApply);
-        if (hoverStyle.backgroundColor !== expectedBackground) {
-          throw new Error('Grid Apply hover used ' + hoverStyle.backgroundColor + ' instead of ' + expectedBackground);
-        }
+        await waitForGrid(() => hoveredApply.matches(':hover') &&
+          getComputedStyle(hoveredApply).backgroundColor === expectedBackground,
+        'The pointer did not reach Grid Apply or its hover background did not settle to ' + expectedBackground);
         cancelButton.click();
         await waitForGrid(() => document.activeElement === gridAction('edit-1') &&
           !document.querySelector('.wr-data-grid-graphql-editor'), 'Cancel did not restore focus to Edit');
         if (grid.querySelector('[data-webrad-grid-draft]')) throw new Error('Cancel staged a grid edit');
         const stageGridEdit = (value, current = 'Grid Alpha', fieldLabel = 'Customer name') => {
-          const lastSave = page.dataset.graphQlSaved;
+          const lastSave = page.dataset.graphQlSaveCount;
           if (gridAction('edit-1').textContent !== 'Change customer') throw new Error('Grid edit caption was not applied');
           gridAction('edit-1').click();
           const editor = document.querySelector('.wr-data-grid-graphql-editor[open]');
@@ -1825,7 +1822,7 @@ export class index extends indexGenerated {
             throw new Error('Apply did not render as the primary grid action');
           }
           applyButton.click();
-          if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaved !== lastSave) throw new Error('Editing did not remain a local grid draft');
+          if (gridCell() !== value || page.dataset.graphQlDraftCount !== '1' || page.dataset.graphQlSaveCount !== lastSave) throw new Error('Editing did not remain a local grid draft');
         };
         stageGridEdit('Discarded Grid Draft');
         const draftStatus = grid.querySelector('.wr-data-grid-graphql-draft');
@@ -1851,13 +1848,23 @@ export class index extends indexGenerated {
         if (page.dataset.graphQlSaveError || grid.querySelector('[data-webrad-grid-draft]')) throw new Error(page.dataset.graphQlSaveError || 'A saved grid edit retained its draft');
         await waitForGrid(() => document.querySelector('.wr-data-grid-graphql-editor') === null, 'Grid edit dialog did not close after staging the saved draft');
         stageGridEdit('Grid Alpha Saved Again', 'Grid Alpha Saved', 'Endpoint customer name');
+        const saveCountBeforeButton = Number(page.dataset.graphQlSaveCount);
         const saveAction = gridAction('save');
         if (saveAction?.textContent !== 'Save customer edits') throw new Error('Grid save caption was not applied');
         saveAction.click();
         if (!gridAction('save')?.disabled || gridStatus()?.dataset.state !== 'saving') {
           throw new Error('Grid Save did not show in-progress feedback');
         }
-        await waitForGrid(() => gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again', 'The grid button did not save its draft');
+        const savingCheckbox = grid.querySelector('.wr-data-grid-checkbox');
+        const savingToggle = grid.querySelector('.wr-data-grid-toggle');
+        if (!savingCheckbox?.disabled || !savingToggle?.disabled || savingToggle.tabIndex !== -1) {
+          throw new Error('Data Grid boolean cells remained interactive during Save');
+        }
+        await waitForGrid(() => !!page.dataset.graphQlSaveError ||
+          (Number(page.dataset.graphQlSaveCount) === saveCountBeforeButton + 1 &&
+            gridAction('save') === null && gridCell() === 'Grid Alpha Saved Again'),
+        'The grid button did not save its draft');
+        if (page.dataset.graphQlSaveError) throw new Error(page.dataset.graphQlSaveError);
         const saveCountBeforeAutoSave = Number(page.dataset.graphQlSaveCount);
         document.querySelector('[data-graphql-autosave="true"]').click();
         await waitForGrid(() => gridAction('save') === null, 'The grid did not enter Auto save mode');
@@ -1868,7 +1875,7 @@ export class index extends indexGenerated {
         await waitForGrid(
           () =>
             !!page.dataset.graphQlSaveError ||
-            (Number(page.dataset.graphQlSaveCount) > saveCountBeforeAutoSave &&
+            (Number(page.dataset.graphQlSaveCount) === saveCountBeforeAutoSave + 1 &&
               gridCell() === 'Grid Alpha Auto Saved'),
           'Auto save did not persist the staged GraphQL edit',
         );
@@ -1926,11 +1933,13 @@ export class index extends indexGenerated {
           (request.body?.variables as Readonly<Record<string, unknown>> | undefined)?.customerId ===
             2,
       ).length !== 1 ||
-      graphQLMutations.length !== 2 ||
+      graphQLMutations.length !== 3 ||
       graphQLMutations[0]?.rowId !== 1 ||
       graphQLMutations[0]?.name !== 'Grid Alpha Saved' ||
       graphQLMutations[1]?.rowId !== 1 ||
       graphQLMutations[1]?.name !== 'Grid Alpha Saved Again' ||
+      graphQLMutations[2]?.rowId !== 1 ||
+      graphQLMutations[2]?.name !== 'Grid Alpha Auto Saved' ||
       !requests.some(
         (request) =>
           request.route === '/gql/demo' &&
@@ -1938,9 +1947,9 @@ export class index extends indexGenerated {
             'grid-cursor-1',
       )
     )
-      throw new Error('GraphQL Data Grid cursor or explicit mutation request mismatch.');
+      throw new Error('GraphQL Data Grid cursor or mutation request mismatch.');
     log(
-      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution from a grouped endpoint, Data Grid and ComboBox bindings, direct checkbox and toggle interaction, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, endpoint field labels with grid overrides, configured captions, editor feedback, primary hover and focus restoration, draft and saving states, and explicit saves from page code and the grid button; HTTP fixture',
+      'renderer GraphQL Data Grid compiled runtime passed: typed GraphQL Client execution from a grouped endpoint, Data Grid and ComboBox bindings, direct checkbox and toggle interaction, page size, cursor navigation and external cursor history, independent labels and keys, mapped drafts, undo, endpoint field labels with grid overrides, configured captions, editor feedback, primary hover and focus restoration, draft and saving states, and explicit saves from page code and the grid button, and Auto save; HTTP fixture',
     );
     const paymentRequests = requests.filter((request) => request.route.startsWith('/payment/'));
     if (
