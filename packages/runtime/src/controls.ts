@@ -281,6 +281,13 @@ export class WebToggle extends WebComponent<HTMLButtonElement> {
   public set checked(value: boolean) {
     this.element.setAttribute('aria-checked', String(value));
   }
+  public override get enabled(): boolean {
+    return super.enabled;
+  }
+  public override set enabled(value: boolean) {
+    super.enabled = value;
+    this.element.tabIndex = value ? 0 : -1;
+  }
   public click(): void {
     this.element.click();
   }

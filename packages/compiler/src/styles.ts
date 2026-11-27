@@ -87,6 +87,11 @@ export function selectComponentCss(
     primaryClasses.get(className) ??
     Object.entries(CONTROL_CLASS_PREFIXES).find(([prefix]) => className.startsWith(prefix))?.[1];
   const root = postcss.parse(componentCss);
+  root.walkAtRules((rule) => {
+    if (rule.name.toLowerCase() !== 'keyframes') return;
+    const componentType = owner(rule.params.trim());
+    if (componentType !== undefined && !requiredTypes.has(componentType)) rule.remove();
+  });
   root.walkRules((rule) => {
     const selectors = rule.selectors.filter((selector) => {
       const classes = [...selector.matchAll(/\.([a-zA-Z_][\w-]*)/gu)].map(

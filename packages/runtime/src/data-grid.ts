@@ -497,7 +497,7 @@ function dataCell(
       }
       const toggle = new WebToggle(element);
       toggle.checked = cellBoolean(value);
-      toggle.enabled = booleanInteraction?.enabled ?? true;
+      toggle.enabled = booleanInteraction?.enabled ?? false;
       toggles.push(toggle);
       if (booleanInteraction !== undefined) {
         element.addEventListener('change', () => booleanInteraction.change(toggle.checked));
